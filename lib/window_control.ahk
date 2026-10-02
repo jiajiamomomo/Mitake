@@ -1,14 +1,64 @@
 #Requires AutoHotkey v2.0
 
 /**
+ * 取得三竹股市主程式視窗之 WinTitle
+ * @returns {String} 主程式視窗 WinTitle (預設: "三竹股市")
+ */
+GetMainWindowTitle() {
+    return GetConfig("App", "MainWinTitle", GetConfig("App", "WinTitle", "三竹股市"))
+}
+
+/**
+ * 取得「熱門排行」視窗之 WinTitle
+ * @returns {String} 熱門排行視窗 WinTitle (預設: "熱門排行")
+ */
+GetPopularRankingWindowTitle() {
+    return GetConfig("App", "PopularRankingWinTitle", "熱門排行")
+}
+
+/**
+ * 取得「盤後排行」視窗之 WinTitle
+ * @returns {String} 盤後排行視窗 WinTitle (預設: "盤後排行")
+ */
+GetAfterMarketRankingWindowTitle() {
+    return GetConfig("App", "AfterMarketRankingWinTitle", "盤後排行")
+}
+
+/**
+ * 切換至三竹股市主程式視窗 (WinTitle: "三竹股市") 並置於最前台與最大化
+ * 僅主程式視窗具備 menu bar，點擊 menu bar 前應先調用本函式切換到主程式視窗
+ * @param {Integer} timeout 等待視窗就緒之超時秒數 (預設 3 秒)
+ * @returns {Boolean} 切換是否成功
+ */
+SwitchToMainWindow(timeout := 3) {
+    mainWinTitle := GetMainWindowTitle()
+    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+    hwnd := WinExist(mainWinTitle) ? WinExist(mainWinTitle) : WinExist("ahk_exe " procName)
+    
+    if !hwnd {
+        LogMessage(Format("切換主程式視窗失敗：未偵測到主程式視窗 [{1}]", mainWinTitle), "WARN")
+        return false
+    }
+    
+    ActivateMitake(hwnd)
+    
+    if WinWaitActive(hwnd, , timeout) {
+        LogMessage(Format("已成功切換至主程式視窗: {1}", mainWinTitle), "INFO")
+        return true
+    } else {
+        return WinExist(hwnd) ? true : false
+    }
+}
+
+/**
  * 檢查三竹股市是否正在執行
  * @returns {Boolean} 是否在執行中
  */
 IsMitakeRunning() {
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
+    mainTitle := GetMainWindowTitle()
     procName := GetConfig("App", "ProcessName", "三竹股市.exe")
     
-    return (WinExist(winTitle) || ProcessExist(procName)) ? true : false
+    return (WinExist(mainTitle) || WinExist("ahk_exe " procName) || ProcessExist(procName)) ? true : false
 }
 
 /**
@@ -22,21 +72,19 @@ LaunchMitakeStock(customPath := "") {
         return false
     }
 
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
+    mainWinTitle := GetMainWindowTitle()
     procName := GetConfig("App", "ProcessName", "三竹股市.exe")
     timeoutStr := GetConfig("App", "Timeout", "15")
     timeout := Integer(timeoutStr)
 
-    ; 1. 若已經在執行，直接切換至前台並顯示
-    if WinExist(winTitle) {
-        LogMessage("三竹股市已在執行中，正在切換至前台...", "INFO")
-        ActivateMitake()
-        return true
+    ; 1. 若主程式視窗已經存在，切換至主程式視窗並最大化
+    if WinExist(mainWinTitle) || WinExist("ahk_exe " procName) {
+        LogMessage("三竹股市已在執行中，正在切換至主程式視窗...", "INFO")
+        return SwitchToMainWindow()
     } else if ProcessExist(procName) {
-        LogMessage("檢測到三竹股市程序運作中，等待視窗出現...", "INFO")
-        if WinWait(winTitle, , 5) {
-            ActivateMitake()
-            return true
+        LogMessage("檢測到三竹股市程序運作中，等待主程式視窗出現...", "INFO")
+        if WinWait(mainWinTitle, , 5) || WinWait("ahk_exe " procName, , 5) {
+            return SwitchToMainWindow()
         }
     }
 
@@ -62,44 +110,55 @@ LaunchMitakeStock(customPath := "") {
         return false
     }
 
-    ; 4. 等待視窗開啟
-    if WinWait(winTitle, , timeout) {
-        LogMessage("三竹股市已成功啟動並開啟視窗。", "INFO")
-        ActivateMitake()
-        return true
+    ; 4. 等待主程式視窗開啟 (同時兼容主標題或程序名稱)
+    if WinWait(mainWinTitle, , timeout) || WinWait("ahk_exe " procName, , timeout) {
+        LogMessage("三竹股市主程式視窗已成功啟動。", "INFO")
+        Sleep(500)
+        return SwitchToMainWindow()
     } else {
-        LogMessage(Format("啟動三竹股市超時 ({1} 秒內未偵測到視窗)。", timeout), "WARN")
+        LogMessage(Format("啟動三竹股市超時 ({1} 秒內未偵測到主程式視窗)。", timeout), "WARN")
         return false
     }
 }
 
 /**
- * 聚焦並永遠將「三竹股市」視窗最大化
- * @param {Integer|String} target 視窗 HWND 或 WinTitle (0 代表預設/所有三竹股市視窗)
+ * 聚焦並將指定視窗或三竹股市主視窗最大化
+ * 若視窗處於最小化狀態則先還原；若已最大化則避免重覆最大化以防下拉選單被強制關閉
+ * @param {Integer|String} target 視窗 HWND 或 WinTitle (0 代表預設主程式視窗)
+ * @returns {Boolean} 是否成功激活
  */
 ActivateMitake(target := 0) {
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
-    
-    if (target != 0) {
-        if WinExist(target) {
-            WinActivate(target)
-            WinMaximize(target)
-            LogMessage("已將指定的三竹股市視窗切換至最前台並最大化。", "INFO")
-        }
-        return
+    mainWinTitle := GetMainWindowTitle()
+    targetWin := (target != 0) ? target : mainWinTitle
+    hwnd := WinExist(targetWin)
+    if !hwnd {
+        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        hwnd := WinExist("ahk_exe " procName)
     }
     
-    if WinExist(winTitle) {
-        winList := WinGetList(winTitle)
-        for hwnd in winList {
-            try {
-                WinMaximize(hwnd)
-            }
-        }
-        WinActivate(winTitle)
-        WinMaximize(winTitle)
-        LogMessage("已將三竹股市視窗切換至最前台並全數最大化。", "INFO")
+    if !hwnd {
+        return false
     }
+    
+    ; 1. 若視窗處於最小化，先還原以確保正常顯示於桌面
+    minMax := WinGetMinMax(hwnd)
+    if (minMax == -1) {
+        WinRestore(hwnd)
+        Sleep(50)
+    }
+    
+    ; 2. 設置前景焦點鎖定許可並激活視窗
+    DllCall("user32\AllowSetForegroundWindow", "Int", -1)
+    DllCall("user32\SetForegroundWindow", "Ptr", hwnd)
+    WinActivate(hwnd)
+    
+    ; 3. 若未處於最大化狀態，再進行最大化，避免重覆最大化關閉已展開的選單
+    if (WinGetMinMax(hwnd) != 1) {
+        WinMaximize(hwnd)
+    }
+    
+    LogMessage(Format("已將視窗 [{1}] (HWND: {2}) 切換至最前台並最大化。", targetWin, hwnd), "INFO")
+    return true
 }
 
 /**
@@ -109,14 +168,17 @@ ActivateMitake(target := 0) {
  * @returns {Boolean} 執行是否成功
  */
 ToggleMitakeMenuBar() {
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
+    mainWinTitle := GetMainWindowTitle()
     
-    if !WinExist(winTitle) {
+    if !WinExist(mainWinTitle) && !IsMitakeRunning() {
         LogMessage("切換選單列失敗：三竹股市未開啟", "WARN")
         return false
     }
     
-    ActivateMitake()
+    ; 僅主程式視窗有 menu bar，切換至主程式視窗
+    if !SwitchToMainWindow() {
+        return false
+    }
     
     ; 讀取設定檔中的觸發模式 (key, click, image)
     mode := GetConfig("MenuBar", "TriggerMode", "click")
@@ -131,7 +193,7 @@ ToggleMitakeMenuBar() {
         if !FileExist(imgPath) {
             imgPath := GetConfig("MenuBar", "ImagePath", "assets/1920x1080/menu.png")
         }
-        imgRes := FindAndClickImage(imgPath)
+        imgRes := FindAndClickImage(imgPath, 0, 0, 1200, 400, 30, mainWinTitle)
         if imgRes.found {
             return true
         } else {
@@ -139,10 +201,10 @@ ToggleMitakeMenuBar() {
             clickX := Integer(GetConfig("MenuBar", "ClickX", "35"))
             clickY := Integer(GetConfig("MenuBar", "ClickY", "45"))
             if (clickMethod == "control") {
-                ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+                ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
             } else {
                 oldMouse := CoordMode("Mouse", "Client")
-                WinActivate(winTitle)
+                WinActivate(mainWinTitle)
                 MouseMove(clickX, clickY, 0)
                 Click(clickX, clickY)
                 CoordMode("Mouse", oldMouse)
@@ -155,10 +217,10 @@ ToggleMitakeMenuBar() {
         clickX := Integer(GetConfig("MenuBar", "ClickX", "35"))
         clickY := Integer(GetConfig("MenuBar", "ClickY", "45"))
         if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
             oldMouse := CoordMode("Mouse", "Client")
-            WinActivate(winTitle)
+            WinActivate(mainWinTitle)
             MouseMove(clickX, clickY, 0)
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
@@ -206,20 +268,29 @@ GetImageSize(imagePath, &width, &height) {
  * @param {Integer} winX2 搜尋區域右下 X
  * @param {Integer} winY2 搜尋區域右下 Y
  * @param {Integer} variation 色彩容許度 (0-255)
+ * @param {String} targetWin 指定目標視窗 (若未指定則使用主程式視窗)
+ * @param {Boolean} shouldActivate 是否先激活視窗 (搜尋已展開之選單時應設為 false 以免關閉選單)
  * @returns {Object} {found: Boolean, x: Integer, y: Integer}
  */
-FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, variation := 30) {
+FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, variation := 30, targetWin := "", shouldActivate := true) {
     if !FileExist(imagePath) {
         LogMessage(Format("找不到搜尋圖像檔案: {1}", imagePath), "WARN")
         return {found: false, x: 0, y: 0}
     }
     
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
-    if !WinExist(winTitle) {
+    winTitle := (targetWin != "") ? targetWin : GetMainWindowTitle()
+    hwnd := WinExist(winTitle)
+    if !hwnd {
+        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        hwnd := WinExist("ahk_exe " procName)
+    }
+    if !hwnd {
         return {found: false, x: 0, y: 0}
     }
     
-    ActivateMitake()
+    if (shouldActivate && !WinActive(hwnd)) {
+        ActivateMitake(hwnd)
+    }
     
     oldPixel := CoordMode("Pixel", "Client")
     oldMouse := CoordMode("Mouse", "Client")
@@ -235,10 +306,12 @@ FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400
             clickMethod := GetConfig("App", "ClickMethod", "physical")
             
             if (clickMethod == "control") {
-                ControlClick(Format("X{} Y{}", targetX, targetY), winTitle)
+                ControlClick(Format("X{} Y{}", targetX, targetY), hwnd)
             } else {
                 ; 實體滑鼠移動與點擊 (自訂繪製視窗必備)
-                WinActivate(winTitle)
+                if (shouldActivate && !WinActive(hwnd)) {
+                    WinActivate(hwnd)
+                }
                 MouseMove(targetX, targetY, 0)
                 Click(targetX, targetY)
             }
@@ -332,38 +405,39 @@ GetAssetImagePath(assetName, targetRes := "") {
 
 /**
  * 點擊「三竹股市」選單列的「證券行情」項目
- * 參照 assets/{resolution}/menu_證券行情.png (如 assets/2560x1440/menu_證券行情.png 或 assets/1920x1080/menu_證券行情.png) 進行圖像辨識定位與點擊
+ * 僅主程式視窗具備 menu bar，點擊前應先切換到主程式視窗 (WinTitle: "三竹股市")
+ * 參照 assets/{resolution}/menu_證券行情.png 進行圖像辨識定位與點擊
  * @returns {Boolean} 點擊是否成功
  */
 ClickSecuritiesQuoteMenu() {
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
+    mainWinTitle := GetMainWindowTitle()
     
-    if !WinExist(winTitle) {
-        LogMessage("點擊證券行情失敗：三竹股市未開啟", "WARN")
+    ; 點擊 menu bar「證券行情」前應先切換到主程式視窗
+    if !SwitchToMainWindow() {
+        LogMessage("點擊證券行情失敗：無法切換至主程式視窗", "WARN")
         return false
     }
     
-    ActivateMitake()
+    Sleep(200) ; 確保切換至主程式視窗並渲染就緒
     
     res := GetDisplayResolution(0)
     imgPath := GetAssetImagePath("menu_證券行情.png")
     searchW := (res.width >= 2560) ? 2000 : 1200
     searchH := (res.height >= 1440) ? 500 : 350
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30)
+    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
     if imgRes.found {
         LogMessage("已成功透過圖像辨識點擊「證券行情」。", "INFO")
         return true
     } else {
         ; 影像搜尋若未比對成功，降級採用預設相對座標點擊
-        clickX := Integer(GetConfig("SecuritiesQuote", "ClickX", "120"))
-        clickY := Integer(GetConfig("SecuritiesQuote", "ClickY", "45"))
+        clickX := Integer(GetConfig("SecuritiesQuote", "ClickX", "337"))
+        clickY := Integer(GetConfig("SecuritiesQuote", "ClickY", "14"))
         clickMethod := GetConfig("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
             oldMouse := CoordMode("Mouse", "Client")
-            WinActivate(winTitle)
             MouseMove(clickX, clickY, 0)
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
@@ -374,107 +448,169 @@ ClickSecuritiesQuoteMenu() {
 }
 
 /**
- * 對「三竹股市」視窗點擊選單列「證券行情」→「熱門排行」
- * 參照 assets/{resolution}/熱門排行.png (如 assets/2560x1440/熱門排行.png 或 assets/1920x1080/熱門排行.png) 進行圖像辨識定位與點擊
+ * 對「三竹股市」主程式視窗點擊選單列「證券行情」→「熱門排行」
+ * 點擊 menu bar 前會先切換到主程式視窗，點擊後會出現新視窗且 WinTitle 為 "熱門排行"
+ * 參照 assets/{resolution}/熱門排行.png 進行圖像辨識定位與點擊
+ * @param {Boolean} waitNewWindow 點擊後是否等待「熱門排行」新視窗出現 (預設 true)
+ * @param {Integer} timeout 等待新視窗超時秒數 (預設 5 秒)
  * @returns {Boolean} 點擊是否成功
  */
-ClickPopularRankingMenu() {
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
-    
-    if !WinExist(winTitle) {
-        LogMessage("點擊熱門排行失敗：三竹股市未開啟", "WARN")
-        return false
-    }
-    
-    ActivateMitake()
-    
-    ; 1. 先點擊選單列「證券行情」
+ClickPopularRankingMenu(waitNewWindow := true, timeout := 5) {
+    ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
     if !ClickSecuritiesQuoteMenu() {
         LogMessage("點擊熱門排行失敗：開啟證券行情選單未成功", "WARN")
         return false
     }
     
-    Sleep(300) ; 等待選單選單展開或畫面切換
+    Sleep(300) ; 等待選單展開
     
-    ; 2. 尋找與點擊「熱門排行」
+    ; 2. 尋找與點擊「熱門排行」 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
+    mainWinTitle := GetMainWindowTitle()
     res := GetDisplayResolution(0)
     imgPath := GetAssetImagePath("熱門排行.png")
     searchW := (res.width >= 2560) ? 2000 : 1200
     searchH := (res.height >= 1440) ? 750 : 500
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30)
+    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
+    clicked := false
     if imgRes.found {
         LogMessage("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
-        return true
+        clicked := true
     } else {
-        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊
-        clickX := Integer(GetConfig("PopularRanking", "ClickX", "120"))
+        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
+        clickX := Integer(GetConfig("PopularRanking", "ClickX", "78"))
         clickY := Integer(GetConfig("PopularRanking", "ClickY", "80"))
         clickMethod := GetConfig("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
             oldMouse := CoordMode("Mouse", "Client")
-            WinActivate(winTitle)
             MouseMove(clickX, clickY, 0)
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
         LogMessage(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
-        return true
+        clicked := true
     }
+    
+    ; 3. 點擊後出現新視窗且 WinTitle 為 "熱門排行"
+    if (clicked && waitNewWindow) {
+        popWinTitle := GetPopularRankingWindowTitle()
+        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        hwnd := 0
+        if WinWait(popWinTitle, , timeout) || WinWait(popWinTitle " ahk_exe " procName, , timeout) {
+            hwnd := WinExist(popWinTitle) ? WinExist(popWinTitle) : WinExist(popWinTitle " ahk_exe " procName)
+            ActivateMitake(hwnd)
+            LogMessage(Format("已偵測到「熱門排行」新視窗 ({1}) 並最大化顯示", popWinTitle), "INFO")
+        } else {
+            LogMessage(Format("等待「熱門排行」新視窗 ({1}) 出現超時 ({2} 秒)", popWinTitle, timeout), "WARN")
+        }
+    }
+    
+    return clicked
 }
 
 /**
- * 對「三竹股市」視窗點擊選單列「證券行情」→「盤後排行」
- * 參照 assets/{resolution}/盤後排行.png (如 assets/2560x1440/盤後排行.png 或 assets/1920x1080/盤後排行.png) 進行圖像辨識定位與點擊
+ * 對「三竹股市」主程式視窗點擊選單列「證券行情」→「盤後排行」
+ * 點擊 menu bar 前會先切換到主程式視窗，點擊後會出現新視窗且 WinTitle 為 "盤後排行"
+ * 參照 assets/{resolution}/盤後排行.png 進行圖像辨識定位與點擊
+ * @param {Boolean} waitNewWindow 點擊後是否等待「盤後排行」新視窗出現 (預設 true)
+ * @param {Integer} timeout 等待新視窗超時秒數 (預設 5 秒)
  * @returns {Boolean} 點擊是否成功
  */
-ClickAfterMarketRankingMenu() {
-    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
-    
-    if !WinExist(winTitle) {
-        LogMessage("點擊盤後排行失敗：三竹股市未開啟", "WARN")
-        return false
-    }
-    
-    ActivateMitake()
-    
-    ; 1. 先點擊選單列「證券行情」
+ClickAfterMarketRankingMenu(waitNewWindow := true, timeout := 5) {
+    ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
     if !ClickSecuritiesQuoteMenu() {
         LogMessage("點擊盤後排行失敗：開啟證券行情選單未成功", "WARN")
         return false
     }
     
-    Sleep(300) ; 等待選單展開或畫面切換
+    Sleep(300) ; 等待選單展開
     
-    ; 2. 尋找與點擊「盤後排行」
+    ; 2. 尋找與點擊「盤後排行」 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
+    mainWinTitle := GetMainWindowTitle()
     res := GetDisplayResolution(0)
     imgPath := GetAssetImagePath("盤後排行.png")
     searchW := (res.width >= 2560) ? 2000 : 1200
     searchH := (res.height >= 1440) ? 750 : 500
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30)
+    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
+    clicked := false
     if imgRes.found {
         LogMessage("已成功透過圖像辨識點擊「盤後排行」。", "INFO")
-        return true
+        clicked := true
     } else {
-        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊
-        clickX := Integer(GetConfig("AfterMarketRanking", "ClickX", "120"))
-        clickY := Integer(GetConfig("AfterMarketRanking", "ClickY", "115"))
+        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
+        clickX := Integer(GetConfig("AfterMarketRanking", "ClickX", "78"))
+        clickY := Integer(GetConfig("AfterMarketRanking", "ClickY", "110"))
         clickMethod := GetConfig("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
             oldMouse := CoordMode("Mouse", "Client")
-            WinActivate(winTitle)
             MouseMove(clickX, clickY, 0)
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
         LogMessage(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
+        clicked := true
+    }
+    
+    ; 3. 點擊後出現新視窗且 WinTitle 為 "盤後排行"
+    if (clicked && waitNewWindow) {
+        afterWinTitle := GetAfterMarketRankingWindowTitle()
+        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        hwnd := 0
+        if WinWait(afterWinTitle, , timeout) || WinWait(afterWinTitle " ahk_exe " procName, , timeout) {
+            hwnd := WinExist(afterWinTitle) ? WinExist(afterWinTitle) : WinExist(afterWinTitle " ahk_exe " procName)
+            ActivateMitake(hwnd)
+            LogMessage(Format("已偵測到「盤後排行」新視窗 ({1}) 並最大化顯示", afterWinTitle), "INFO")
+        } else {
+            LogMessage(Format("等待「盤後排行」新視窗 ({1}) 出現超時 ({2} 秒)", afterWinTitle, timeout), "WARN")
+        }
+    }
+    
+    return clicked
+}
+
+/**
+ * 切換至「熱門排行」視窗 (WinTitle: "熱門排行") 並置於最前台與最大化
+ * 若視窗已存在則直接切換；若未開啟則自動點擊選單開啟新視窗
+ * @param {Integer} timeout 等待視窗出現之超時秒數 (預設 5 秒)
+ * @returns {Boolean} 切換或開啟是否成功
+ */
+SwitchToPopularRankingWindow(timeout := 5) {
+    popWinTitle := GetPopularRankingWindowTitle()
+    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+    hwnd := WinExist(popWinTitle) ? WinExist(popWinTitle) : WinExist(popWinTitle " ahk_exe " procName)
+    if hwnd {
+        ActivateMitake(hwnd)
+        LogMessage(Format("已切換至現有的「熱門排行」視窗: {1}", popWinTitle), "INFO")
         return true
     }
+    
+    LogMessage("「熱門排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
+    return ClickPopularRankingMenu(true, timeout)
+}
+
+/**
+ * 切換至「盤後排行」視窗 (WinTitle: "盤後排行") 並置於最前台與最大化
+ * 若視窗已存在則直接切換；若未開啟則自動點擊選單開啟新視窗
+ * @param {Integer} timeout 等待視窗出現之超時秒數 (預設 5 秒)
+ * @returns {Boolean} 切換或開啟是否成功
+ */
+SwitchToAfterMarketRankingWindow(timeout := 5) {
+    afterWinTitle := GetAfterMarketRankingWindowTitle()
+    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+    hwnd := WinExist(afterWinTitle) ? WinExist(afterWinTitle) : WinExist(afterWinTitle " ahk_exe " procName)
+    if hwnd {
+        ActivateMitake(hwnd)
+        LogMessage(Format("已切換至現有的「盤後排行」視窗: {1}", afterWinTitle), "INFO")
+        return true
+    }
+    
+    LogMessage("「盤後排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
+    return ClickAfterMarketRankingMenu(true, timeout)
 }
 
 

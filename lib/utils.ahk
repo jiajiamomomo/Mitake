@@ -30,7 +30,15 @@ EnsureIniEncoding(iniPath) {
  * @returns {String} 設定值
  */
 GetConfig(section, key, defaultValue := "") {
-    static iniPath := A_ScriptDir "\config\settings.ini"
+    static iniPath := ""
+    if (iniPath == "") {
+        if FileExist(A_ScriptDir "\config\settings.ini")
+            iniPath := A_ScriptDir "\config\settings.ini"
+        else if FileExist(A_ScriptDir "\..\config\settings.ini")
+            iniPath := A_ScriptDir "\..\config\settings.ini"
+        else
+            iniPath := A_ScriptDir "\config\settings.ini"
+    }
     if !FileExist(iniPath) {
         return defaultValue
     }
@@ -49,8 +57,17 @@ GetConfig(section, key, defaultValue := "") {
  * @param {String} level 日誌等級 (INFO, WARN, ERROR)
  */
 LogMessage(msg, level := "INFO") {
-    static logDir := A_ScriptDir "\logs"
-    static logFile := logDir "\app.log"
+    static logDir := ""
+    static logFile := ""
+    if (logDir == "") {
+        if DirExist(A_ScriptDir "\logs") || FileExist(A_ScriptDir "\Mitake.ahk")
+            logDir := A_ScriptDir "\logs"
+        else if DirExist(A_ScriptDir "\..\logs") || FileExist(A_ScriptDir "\..\Mitake.ahk")
+            logDir := A_ScriptDir "\..\logs"
+        else
+            logDir := A_ScriptDir "\logs"
+        logFile := logDir "\app.log"
+    }
     
     if !DirExist(logDir) {
         DirCreate(logDir)

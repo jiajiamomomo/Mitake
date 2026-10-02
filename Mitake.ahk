@@ -1,6 +1,9 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
+SetTitleMatchMode(2)
+DetectHiddenWindows(false)
+
 #Include lib\utils.ahk
 #Include lib\window_control.ahk
 
@@ -100,11 +103,11 @@ MenuClickSecuritiesQuoteHandler(ItemName, ItemPos, MyMenu) {
 }
 
 MenuClickPopularRankingHandler(ItemName, ItemPos, MyMenu) {
-    ClickPopularRankingMenu()
+    SwitchToPopularRankingWindow()
 }
 
 MenuClickAfterMarketRankingHandler(ItemName, ItemPos, MyMenu) {
-    ClickAfterMarketRankingMenu()
+    SwitchToAfterMarketRankingWindow()
 }
 
 MenuShowResolutionHandler(ItemName, ItemPos, MyMenu) {
@@ -129,10 +132,10 @@ HotkeySecuritiesQuoteHandler(HotkeyName) {
 }
 
 HotkeyPopularRankingHandler(HotkeyName) {
-    ClickPopularRankingMenu()
+    SwitchToPopularRankingWindow()
 }
 
 HotkeyAfterMarketRankingHandler(HotkeyName) {
-    ClickAfterMarketRankingMenu()
+    SwitchToAfterMarketRankingWindow()
 }
 

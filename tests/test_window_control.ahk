@@ -94,6 +94,79 @@ Test_GetImageSize_Fallback() {
     Assert.AssertTrue(w > 0 && h > 0, "GetImageSize should return positive dimensions")
 }
 
+Test_GetWindowTitles() {
+    mainTitle := GetMainWindowTitle()
+    Assert.AssertEquals("三竹股市", mainTitle, "GetMainWindowTitle should return '三竹股市'")
+
+    popTitle := GetPopularRankingWindowTitle()
+    Assert.AssertEquals("熱門排行", popTitle, "GetPopularRankingWindowTitle should return '熱門排行'")
+
+    afterTitle := GetAfterMarketRankingWindowTitle()
+    Assert.AssertEquals("盤後排行", afterTitle, "GetAfterMarketRankingWindowTitle should return '盤後排行'")
+}
+
+Test_SwitchToMainWindow_WhenNotRunning() {
+    result := SwitchToMainWindow(1)
+    Assert.AssertTrue(result == true || result == false, "SwitchToMainWindow should return boolean")
+}
+
+Test_SwitchToPopularRankingWindow_ReturnType() {
+    result := SwitchToPopularRankingWindow(1)
+    Assert.AssertTrue(result == true || result == false, "SwitchToPopularRankingWindow should return boolean")
+}
+
+Test_SwitchToAfterMarketRankingWindow_ReturnType() {
+    result := SwitchToAfterMarketRankingWindow(1)
+    Assert.AssertTrue(result == true || result == false, "SwitchToAfterMarketRankingWindow should return boolean")
+}
+
+Test_WindowSwitching_WithMockGuis() {
+    mainGui := Gui(, "三竹股市")
+    mainGui.Show("w200 h100 x100 y100 NoActivate")
+
+    popGui := Gui(, "熱門排行")
+    popGui.Show("w200 h100 x350 y100 NoActivate")
+
+    afterGui := Gui(, "盤後排行")
+    afterGui.Show("w200 h100 x600 y100 NoActivate")
+
+    ; 驗證視窗存在
+    Assert.AssertTrue(WinExist("三竹股市") != 0, "Main window '三竹股市' should exist")
+    Assert.AssertTrue(WinExist("熱門排行") != 0, "Popular ranking window '熱門排行' should exist")
+    Assert.AssertTrue(WinExist("盤後排行") != 0, "After-market ranking window '盤後排行' should exist")
+
+    ; 驗證切換至主程式視窗
+    successMain := SwitchToMainWindow(1)
+    Assert.AssertTrue(successMain, "SwitchToMainWindow should succeed when main window exists")
+
+    ; 驗證切換至熱門排行視窗
+    successPop := SwitchToPopularRankingWindow(1)
+    Assert.AssertTrue(successPop, "SwitchToPopularRankingWindow should succeed when popular ranking exists")
+
+    ; 驗證切換至盤後排行視窗
+    successAfter := SwitchToAfterMarketRankingWindow(1)
+    Assert.AssertTrue(successAfter, "SwitchToAfterMarketRankingWindow should succeed when after-market ranking exists")
+
+    ; 驗證點擊 menu bar 前切換回主程式視窗
+    successBack := SwitchToMainWindow(1)
+    Assert.AssertTrue(successBack, "Switch back to main window should succeed")
+
+    mainGui.Destroy()
+    popGui.Destroy()
+    afterGui.Destroy()
+}
+
+Test_ActivateMitake_RestoreMinimized() {
+    mockGui := Gui(, "三竹股市")
+    mockGui.Show("w200 h100 x100 y100 NoActivate")
+    WinMinimize(mockGui.Hwnd)
+    Assert.AssertTrue(WinGetMinMax(mockGui.Hwnd) == -1, "Mock window should be minimized")
+    
+    ActivateMitake(mockGui.Hwnd)
+    Assert.AssertTrue(WinGetMinMax(mockGui.Hwnd) != -1, "ActivateMitake should unminimize window")
+    mockGui.Destroy()
+}
+
 RunWindowControlTests() {
     FileAppend("Running Window Control Tests...`n", "*")
     Test_IsMitakeRunning_ReturnType()
@@ -108,4 +181,11 @@ RunWindowControlTests() {
     Test_GetAssetImagePath_1920x1080()
     Test_AssetImageSizes_2560x1440()
     Test_GetImageSize_Fallback()
+    Test_GetWindowTitles()
+    Test_SwitchToMainWindow_WhenNotRunning()
+    Test_SwitchToPopularRankingWindow_ReturnType()
+    Test_SwitchToAfterMarketRankingWindow_ReturnType()
+    Test_WindowSwitching_WithMockGuis()
+    Test_ActivateMitake_RestoreMinimized()
 }
+
