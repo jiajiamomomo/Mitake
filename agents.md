@@ -19,7 +19,7 @@
 
 本專案使用中文字串(如 '三竹股市.exe')，請避免編碼解析異常，建議採用UTF-8。
 
-使用Jujutsu(jj)配合GitHub作版本管理。
+使用Jujutsu(jj)配合GitHub作版本管理。每次執行 `jj git push` 之前，務必先運行 `code2prompt . -e "tests/**" -e "prompt.md" -O prompt.md`。
 
 ---
 
