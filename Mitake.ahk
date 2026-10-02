@@ -10,6 +10,7 @@ A_TrayMenu.Add() ; 分隔線
 A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHandler)
 A_TrayMenu.Add("開啟/切換 選單列", MenuToggleMenuBarHandler)
 A_TrayMenu.Add("切換至 證券行情", MenuClickSecuritiesQuoteHandler)
+A_TrayMenu.Add("切換至 熱門排行", MenuClickPopularRankingHandler)
 A_TrayMenu.Add("顯示系統解析度", MenuShowResolutionHandler)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
@@ -61,6 +62,16 @@ if secquotehk != "" {
     }
 }
 
+poprankhk := GetConfig("Hotkey", "PopularRankingHotkey", "")
+if poprankhk != "" {
+    try {
+        Hotkey(poprankhk, HotkeyPopularRankingHandler)
+        LogMessage(Format("已成功設定熱門排行快捷鍵: {1}", poprankhk), "INFO")
+    } catch as err {
+        LogMessage(Format("綁定熱門排行快捷鍵 [{1}] 失敗: {2}", poprankhk, err.Message), "WARN")
+    }
+}
+
 mainRes := GetDisplayResolution()
 LogMessage(Format("三竹股市 AutoHotkey 控制腳本載入完成。主顯示器解析度: {1}", mainRes.str), "INFO")
 
@@ -77,6 +88,10 @@ MenuToggleMenuBarHandler(ItemName, ItemPos, MyMenu) {
 
 MenuClickSecuritiesQuoteHandler(ItemName, ItemPos, MyMenu) {
     ClickSecuritiesQuoteMenu()
+}
+
+MenuClickPopularRankingHandler(ItemName, ItemPos, MyMenu) {
+    ClickPopularRankingMenu()
 }
 
 MenuShowResolutionHandler(ItemName, ItemPos, MyMenu) {
@@ -99,3 +114,8 @@ HotkeyMenuBarHandler(HotkeyName) {
 HotkeySecuritiesQuoteHandler(HotkeyName) {
     ClickSecuritiesQuoteMenu()
 }
+
+HotkeyPopularRankingHandler(HotkeyName) {
+    ClickPopularRankingMenu()
+}
+

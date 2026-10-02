@@ -306,3 +306,60 @@ ClickSecuritiesQuoteMenu() {
     }
 }
 
+/**
+ * 對「三竹股市」視窗點擊選單列「證券行情」→「熱門排行」
+ * 參照 assets/{resolution}/熱門排行.png (如 assets/1920x1080/熱門排行.png) 進行圖像辨識定位與點擊
+ * @returns {Boolean} 點擊是否成功
+ */
+ClickPopularRankingMenu() {
+    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
+    
+    if !WinExist(winTitle) {
+        LogMessage("點擊熱門排行失敗：三竹股市未開啟", "WARN")
+        return false
+    }
+    
+    ActivateMitake()
+    
+    ; 1. 先點擊選單列「證券行情」
+    if !ClickSecuritiesQuoteMenu() {
+        LogMessage("點擊熱門排行失敗：開啟證券行情選單未成功", "WARN")
+        return false
+    }
+    
+    Sleep(300) ; 等待選單選單展開或畫面切換
+    
+    ; 2. 尋找與點擊「熱門排行」
+    res := GetDisplayResolution(0)
+    imgPath := Format("assets/{1}/熱門排行.png", res.str)
+    if !FileExist(imgPath) {
+        imgPath := Format("assets/熱門排行_{1}.png", res.str)
+    }
+    if !FileExist(imgPath) {
+        imgPath := "assets/1920x1080/熱門排行.png"
+    }
+    
+    imgRes := FindAndClickImage(imgPath, 0, 0, 1200, 500, 30)
+    if imgRes.found {
+        LogMessage("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
+        return true
+    } else {
+        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊
+        clickX := Integer(GetConfig("PopularRanking", "ClickX", "120"))
+        clickY := Integer(GetConfig("PopularRanking", "ClickY", "80"))
+        clickMethod := GetConfig("App", "ClickMethod", "physical")
+        if (clickMethod == "control") {
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+        } else {
+            oldMouse := CoordMode("Mouse", "Client")
+            WinActivate(winTitle)
+            MouseMove(clickX, clickY, 0)
+            Click(clickX, clickY)
+            CoordMode("Mouse", oldMouse)
+        }
+        LogMessage(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
+        return true
+    }
+}
+
+

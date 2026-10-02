@@ -37,6 +37,11 @@ Test_ClickSecuritiesQuoteMenu_ReturnType() {
     Assert.AssertTrue(result == true || result == false, "ClickSecuritiesQuoteMenu should return boolean result")
 }
 
+Test_ClickPopularRankingMenu_ReturnType() {
+    result := ClickPopularRankingMenu()
+    Assert.AssertTrue(result == true || result == false, "ClickPopularRankingMenu should return boolean result")
+}
+
 Test_GetImageSize_Fallback() {
     GetImageSize("assets/non_existent.png", &w, &h)
     Assert.AssertTrue(w > 0 && h > 0, "GetImageSize should return positive dimensions")
@@ -50,5 +55,6 @@ RunWindowControlTests() {
     Test_FindAndClickImage_NonExistentFile()
     Test_ActivateMitake_Execution()
     Test_ClickSecuritiesQuoteMenu_ReturnType()
+    Test_ClickPopularRankingMenu_ReturnType()
     Test_GetImageSize_Fallback()
 }
