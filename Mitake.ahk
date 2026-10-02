@@ -8,8 +8,6 @@
 A_IconTip := "三竹股市 AutoHotkey 控制專案"
 A_TrayMenu.Add() ; 分隔線
 A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHandler)
-A_TrayMenu.Add("開啟/切換 選單列", MenuToggleMenuBarHandler)
-A_TrayMenu.Add("切換至 證券行情", MenuClickSecuritiesQuoteHandler)
 A_TrayMenu.Add("切換至 熱門排行", MenuClickPopularRankingHandler)
 A_TrayMenu.Add("顯示系統解析度", MenuShowResolutionHandler)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
