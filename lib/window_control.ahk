@@ -260,8 +260,79 @@ FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400
 }
 
 /**
+ * 取得專案根目錄路徑
+ * @returns {String} 專案根目錄絕對路徑
+ */
+GetProjectRootDir() {
+    static rootDir := ""
+    if (rootDir != "")
+        return rootDir
+    
+    dir := A_ScriptDir
+    Loop 5 {
+        if FileExist(dir "\assets") && (FileExist(dir "\Mitake.ahk") || FileExist(dir "\config\settings.ini")) {
+            rootDir := dir
+            return rootDir
+        }
+        SplitPath(dir, , &parent)
+        if (parent == dir || parent == "")
+            break
+        dir := parent
+    }
+    rootDir := A_ScriptDir
+    return rootDir
+}
+
+/**
+ * 取得指定資產圖檔的路徑，優先匹配當前主顯示器解析度 (或指定解析度)
+ * @param {String} assetName 圖檔名稱 (如 "menu_證券行情.png" 或 "盤後排行.png")
+ * @param {String} targetRes 可選的目標解析度 (例: "2560x1440" 或 "1920x1080")，預設抓取主顯示器解析度
+ * @returns {String} 解析後的圖檔完整路徑
+ */
+GetAssetImagePath(assetName, targetRes := "") {
+    if !InStr(assetName, ".") {
+        assetName .= ".png"
+    }
+    if (targetRes == "") {
+        res := GetDisplayResolution(0)
+        targetRes := res.str
+    }
+    
+    rootDir := GetProjectRootDir()
+    
+    ; 1. 優先匹配 assets/{解析度}/{檔名} (例如 assets/2560x1440/盤後排行.png)
+    p1 := rootDir "\assets\" targetRes "\" assetName
+    if FileExist(p1)
+        return p1
+        
+    ; 2. 匹配向下相容命名 assets/{檔名無副檔名}_{解析度}.png
+    nameNoExt := SubStr(assetName, 1, InStr(assetName, ".", , -1) - 1)
+    p2 := rootDir "\assets\" nameNoExt "_" targetRes ".png"
+    if FileExist(p2)
+        return p2
+        
+    ; 3. 備援尋找 2560x1440 目錄
+    p3 := rootDir "\assets\2560x1440\" assetName
+    if FileExist(p3)
+        return p3
+
+    ; 4. 備援尋找 1920x1080 目錄
+    p4 := rootDir "\assets\1920x1080\" assetName
+    if FileExist(p4)
+        return p4
+        
+    ; 5. 備援尋找 assets/ 直屬目錄
+    p5 := rootDir "\assets\" assetName
+    if FileExist(p5)
+        return p5
+        
+    ; 若皆不存在，傳回最符合預期的路徑 p1
+    return p1
+}
+
+/**
  * 點擊「三竹股市」選單列的「證券行情」項目
- * 參照 assets/{resolution}/menu_證券行情.png (如 assets/1920x1080/menu_證券行情.png) 進行圖像辨識定位與點擊
+ * 參照 assets/{resolution}/menu_證券行情.png (如 assets/2560x1440/menu_證券行情.png 或 assets/1920x1080/menu_證券行情.png) 進行圖像辨識定位與點擊
  * @returns {Boolean} 點擊是否成功
  */
 ClickSecuritiesQuoteMenu() {
@@ -275,15 +346,11 @@ ClickSecuritiesQuoteMenu() {
     ActivateMitake()
     
     res := GetDisplayResolution(0)
-    imgPath := Format("assets/{1}/menu_證券行情.png", res.str)
-    if !FileExist(imgPath) {
-        imgPath := Format("assets/menu_證券行情_{1}.png", res.str)
-    }
-    if !FileExist(imgPath) {
-        imgPath := "assets/1920x1080/menu_證券行情.png"
-    }
+    imgPath := GetAssetImagePath("menu_證券行情.png")
+    searchW := (res.width >= 2560) ? 2000 : 1200
+    searchH := (res.height >= 1440) ? 500 : 350
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, 1200, 350, 30)
+    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30)
     if imgRes.found {
         LogMessage("已成功透過圖像辨識點擊「證券行情」。", "INFO")
         return true
@@ -308,7 +375,7 @@ ClickSecuritiesQuoteMenu() {
 
 /**
  * 對「三竹股市」視窗點擊選單列「證券行情」→「熱門排行」
- * 參照 assets/{resolution}/熱門排行.png (如 assets/1920x1080/熱門排行.png) 進行圖像辨識定位與點擊
+ * 參照 assets/{resolution}/熱門排行.png (如 assets/2560x1440/熱門排行.png 或 assets/1920x1080/熱門排行.png) 進行圖像辨識定位與點擊
  * @returns {Boolean} 點擊是否成功
  */
 ClickPopularRankingMenu() {
@@ -331,15 +398,11 @@ ClickPopularRankingMenu() {
     
     ; 2. 尋找與點擊「熱門排行」
     res := GetDisplayResolution(0)
-    imgPath := Format("assets/{1}/熱門排行.png", res.str)
-    if !FileExist(imgPath) {
-        imgPath := Format("assets/熱門排行_{1}.png", res.str)
-    }
-    if !FileExist(imgPath) {
-        imgPath := "assets/1920x1080/熱門排行.png"
-    }
+    imgPath := GetAssetImagePath("熱門排行.png")
+    searchW := (res.width >= 2560) ? 2000 : 1200
+    searchH := (res.height >= 1440) ? 750 : 500
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, 1200, 500, 30)
+    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30)
     if imgRes.found {
         LogMessage("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
         return true
@@ -358,6 +421,58 @@ ClickPopularRankingMenu() {
             CoordMode("Mouse", oldMouse)
         }
         LogMessage(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
+        return true
+    }
+}
+
+/**
+ * 對「三竹股市」視窗點擊選單列「證券行情」→「盤後排行」
+ * 參照 assets/{resolution}/盤後排行.png (如 assets/2560x1440/盤後排行.png 或 assets/1920x1080/盤後排行.png) 進行圖像辨識定位與點擊
+ * @returns {Boolean} 點擊是否成功
+ */
+ClickAfterMarketRankingMenu() {
+    winTitle := GetConfig("App", "WinTitle", "ahk_exe 三竹股市.exe")
+    
+    if !WinExist(winTitle) {
+        LogMessage("點擊盤後排行失敗：三竹股市未開啟", "WARN")
+        return false
+    }
+    
+    ActivateMitake()
+    
+    ; 1. 先點擊選單列「證券行情」
+    if !ClickSecuritiesQuoteMenu() {
+        LogMessage("點擊盤後排行失敗：開啟證券行情選單未成功", "WARN")
+        return false
+    }
+    
+    Sleep(300) ; 等待選單展開或畫面切換
+    
+    ; 2. 尋找與點擊「盤後排行」
+    res := GetDisplayResolution(0)
+    imgPath := GetAssetImagePath("盤後排行.png")
+    searchW := (res.width >= 2560) ? 2000 : 1200
+    searchH := (res.height >= 1440) ? 750 : 500
+    
+    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30)
+    if imgRes.found {
+        LogMessage("已成功透過圖像辨識點擊「盤後排行」。", "INFO")
+        return true
+    } else {
+        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊
+        clickX := Integer(GetConfig("AfterMarketRanking", "ClickX", "120"))
+        clickY := Integer(GetConfig("AfterMarketRanking", "ClickY", "115"))
+        clickMethod := GetConfig("App", "ClickMethod", "physical")
+        if (clickMethod == "control") {
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), winTitle)
+        } else {
+            oldMouse := CoordMode("Mouse", "Client")
+            WinActivate(winTitle)
+            MouseMove(clickX, clickY, 0)
+            Click(clickX, clickY)
+            CoordMode("Mouse", oldMouse)
+        }
+        LogMessage(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
         return true
     }
 }

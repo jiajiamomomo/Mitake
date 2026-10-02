@@ -34,6 +34,14 @@ class Assert {
                      . "Test Summary: " total " Total, " this.passedCount " Passed, " this.failedCount " Failed.`n"
                      . "========================================`n"
         FileAppend(summaryText, "*")
+        try {
+            if !DirExist(A_ScriptDir "\..\logs")
+                DirCreate(A_ScriptDir "\..\logs")
+            FileDelete(A_ScriptDir "\..\logs\test_result.log")
+        }
+        try {
+            FileAppend(summaryText, A_ScriptDir "\..\logs\test_result.log", "UTF-8")
+        }
         return this.failedCount == 0
     }
 
