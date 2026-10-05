@@ -105,6 +105,12 @@
    - 撰寫單元測試時，測試焦點切換應以 `WinExist` 及函式回傳值驗證，避免依賴無桌面環境下的 `WinActive`；定位疑難問題時，以實體執行日誌 `logs/app.log` 留下的真實軌跡為準。
 9. **AHK GUI 腳本之常駐特性（Persistence）**：
    - AHK v2 腳本一旦建立了 `Gui()` 物件，該腳本預設會變為常駐進程，除非在結尾明確呼叫 `ExitApp()`，否則命令列等待會持續掛起。
+10. **AHK CLI 測試執行器之主控台輸出捕捉（Console Output Redirection）**：
+   - `AutoHotkey64.exe` 本身為 Windows GUI 應用程式（`SUBSYSTEM_WINDOWS`），預設未附加主控台輸出緩衝區；即使使用 `FileAppend("...", "*")`，直接在命令列執行也不會將 stdout 列印至主控台。
+   - 解決方案：執行測試腳本時務必附加 `/ErrorStdOut` 參數，在 PowerShell 中使用調用運算子 `& "path"` 或經由管線重定向（`cmd /c '"..." /ErrorStdOut tests\run_tests.ahk | findstr "^"'`），方能即時獲取測試進度與摘要。
+11. **階層式自繪選單之過渡展開延遲（Dropdown Animation Latency）**：
+   - 三竹股市為自繪式介面，點擊第一層主選單（如「證券行情」）後，下拉選單展開渲染需要時間（約 200~300ms）。
+   - 若在點擊主選單後立即執行子選單項目（如「熱門排行」）之 `ImageSearch`，會因視覺元件尚未渲染完成而比對失敗並誤觸座標備援；因此在兩層點擊之間必須插入適當的緩衝延遲（如 `Sleep(300)`）。
 
 ---
 
