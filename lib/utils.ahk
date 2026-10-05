@@ -4,7 +4,7 @@
  * 確保 INI 設定檔使用 UTF-16 LE 編碼，以支援 Windows API (GetPrivateProfileStringW) 正確讀取中文
  * @param {String} iniPath INI 檔案路徑
  */
-EnsureIniEncoding(iniPath) {
+EnsureIniEnc(iniPath) {
     if !FileExist(iniPath)
         return
     try {
@@ -26,10 +26,10 @@ EnsureIniEncoding(iniPath) {
  * 取得設定檔內容
  * @param {String} section 區段名稱
  * @param {String} key 鍵名
- * @param {String} defaultValue 預設值
+ * @param {String} defVal 預設值
  * @returns {String} 設定值
  */
-GetConfig(section, key, defaultValue := "") {
+GetCfg(section, key, defVal := "") {
     static iniPath := ""
     if (iniPath == "") {
         if FileExist(A_ScriptDir "\config\settings.ini")
@@ -40,14 +40,14 @@ GetConfig(section, key, defaultValue := "") {
             iniPath := A_ScriptDir "\config\settings.ini"
     }
     if !FileExist(iniPath) {
-        return defaultValue
+        return defVal
     }
-    EnsureIniEncoding(iniPath)
+    EnsureIniEnc(iniPath)
     try {
-        val := IniRead(iniPath, section, key, defaultValue)
-        return val != "" ? val : defaultValue
+        val := IniRead(iniPath, section, key, defVal)
+        return val != "" ? val : defVal
     } catch {
-        return defaultValue
+        return defVal
     }
 }
 
@@ -56,7 +56,7 @@ GetConfig(section, key, defaultValue := "") {
  * @param {String} msg 訊息內容
  * @param {String} level 日誌等級 (INFO, WARN, ERROR)
  */
-LogMessage(msg, level := "INFO") {
+LogMsg(msg, level := "INFO") {
     static logDir := ""
     static logFile := ""
     if (logDir == "") {
@@ -84,19 +84,14 @@ LogMessage(msg, level := "INFO") {
 
 /**
  * 讀取顯示器解析度與邊界資訊
- * @param {Integer} monitorNum 顯示器編號 (0 代表主顯示器，1..N 代表指定顯示器)
+ * @param {Integer} monNum 顯示器編號 (0 代表主顯示器，1..N 代表指定顯示器)
  * @returns {Object} 包含 width, height, left, top, right, bottom, isPrimary, str 的物件
  */
-GetDisplayResolution(monitorNum := 0) {
-    primaryIndex := MonitorGetPrimary()
+GetRes(monNum := 0) {
+    priIdx := MonitorGetPrimary()
+    tgtMon := (monNum == 0) ? priIdx : monNum
     
-    if (monitorNum == 0) {
-        targetMonitor := primaryIndex
-    } else {
-        targetMonitor := monitorNum
-    }
-    
-    if MonitorGet(targetMonitor, &left, &top, &right, &bottom) {
+    if MonitorGet(tgtMon, &left, &top, &right, &bottom) {
         w := right - left
         h := bottom - top
         return {
@@ -106,7 +101,7 @@ GetDisplayResolution(monitorNum := 0) {
             top: top,
             right: right,
             bottom: bottom,
-            isPrimary: (targetMonitor == primaryIndex),
+            isPrimary: (tgtMon == priIdx),
             str: Format("{1}x{2}", w, h)
         }
     } else {
@@ -127,12 +122,12 @@ GetDisplayResolution(monitorNum := 0) {
  * 取得所有顯示器的解析度資訊列表
  * @returns {Array} 顯示器資訊物件陣列
  */
-GetAllDisplaysResolution() {
+GetAllRes() {
     count := MonitorGetCount()
     displays := []
     
     Loop count {
-        displays.Push(GetDisplayResolution(A_Index))
+        displays.Push(GetRes(A_Index))
     }
     
     return displays
@@ -141,14 +136,14 @@ GetAllDisplaysResolution() {
 /**
  * 檢查指定的解析度字串是否為允許的解析度之一
  * @param {String} resStr 解析度字串 (例: "1920x1080")
- * @param {Array} allowedResolutions 支援的解析度清單 (預設為 ["1920x1080", "2560x1440"])
+ * @param {Array} allowedRes 支援的解析度清單 (預設為 ["1920x1080", "2560x1440"])
  * @returns {Boolean} 是否支援
  */
-IsSupportedDisplayResolution(resStr, allowedResolutions := "") {
-    if (allowedResolutions == "") {
-        allowedResolutions := ["1920x1080", "2560x1440"]
+IsSupportedRes(resStr, allowedRes := "") {
+    if (allowedRes == "") {
+        allowedRes := ["1920x1080", "2560x1440"]
     }
-    for item in allowedResolutions {
+    for item in allowedRes {
         if (item == resStr) {
             return true
         }
@@ -161,19 +156,17 @@ IsSupportedDisplayResolution(resStr, allowedResolutions := "") {
  * @param {Boolean} showMsgBox 是否在解析度不符合時彈出提示視窗 (預設為 true)
  * @returns {Boolean} 符合需求傳回 true，否則傳回 false
  */
-ValidatePrimaryDisplayResolution(showMsgBox := true) {
-    res := GetDisplayResolution(0) ; 0 為主顯示器
-    if IsSupportedDisplayResolution(res.str) {
+ValidatePriRes(showMsgBox := true) {
+    res := GetRes(0) ; 0 為主顯示器
+    if IsSupportedRes(res.str) {
         return true
     }
     
     errMsg := Format("顯示器解析度錯誤：主顯示器解析度為 {1}。`n本軟體僅於主顯示器解析度為 1920x1080 或 2560x1440 時繼續執行。", res.str)
-    LogMessage(errMsg, "ERROR")
+    LogMsg(errMsg, "ERROR")
     
     if (showMsgBox) {
         MsgBox(errMsg, "顯示器解析度錯誤", "Icon!")
     }
     return false
 }
-
-

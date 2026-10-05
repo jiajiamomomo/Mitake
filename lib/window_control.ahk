@@ -4,24 +4,24 @@
  * 取得三竹股市主程式視窗之 WinTitle
  * @returns {String} 主程式視窗 WinTitle (預設: "三竹股市")
  */
-GetMainWindowTitle() {
-    return GetConfig("App", "MainWinTitle", GetConfig("App", "WinTitle", "三竹股市"))
+GetMainWinTitle() {
+    return GetCfg("App", "MainWinTitle", GetCfg("App", "WinTitle", "三竹股市"))
 }
 
 /**
  * 取得「熱門排行」視窗之 WinTitle
  * @returns {String} 熱門排行視窗 WinTitle (預設: "熱門排行")
  */
-GetPopularRankingWindowTitle() {
-    return GetConfig("App", "PopularRankingWinTitle", "熱門排行")
+GetPopRankWinTitle() {
+    return GetCfg("App", "PopularRankingWinTitle", "熱門排行")
 }
 
 /**
  * 取得「盤後排行」視窗之 WinTitle
  * @returns {String} 盤後排行視窗 WinTitle (預設: "盤後排行")
  */
-GetAfterMarketRankingWindowTitle() {
-    return GetConfig("App", "AfterMarketRankingWinTitle", "盤後排行")
+GetAfterRankWinTitle() {
+    return GetCfg("App", "AfterMarketRankingWinTitle", "盤後排行")
 }
 
 /**
@@ -30,20 +30,20 @@ GetAfterMarketRankingWindowTitle() {
  * @param {Integer} timeout 等待視窗就緒之超時秒數 (預設 3 秒)
  * @returns {Boolean} 切換是否成功
  */
-SwitchToMainWindow(timeout := 3) {
-    mainWinTitle := GetMainWindowTitle()
-    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+SwitchToMainWin(timeout := 3) {
+    mainWinTitle := GetMainWinTitle()
+    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
     hwnd := WinExist(mainWinTitle) ? WinExist(mainWinTitle) : WinExist("ahk_exe " procName)
     
     if !hwnd {
-        LogMessage(Format("切換主程式視窗失敗：未偵測到主程式視窗 [{1}]", mainWinTitle), "WARN")
+        LogMsg(Format("切換主程式視窗失敗：未偵測到主程式視窗 [{1}]", mainWinTitle), "WARN")
         return false
     }
     
     ActivateMitake(hwnd)
     
     if WinWaitActive(hwnd, , timeout) {
-        LogMessage(Format("已成功切換至主程式視窗: {1}", mainWinTitle), "INFO")
+        LogMsg(Format("已成功切換至主程式視窗: {1}", mainWinTitle), "INFO")
         return true
     } else {
         return WinExist(hwnd) ? true : false
@@ -55,8 +55,8 @@ SwitchToMainWindow(timeout := 3) {
  * @returns {Boolean} 是否在執行中
  */
 IsMitakeRunning() {
-    mainTitle := GetMainWindowTitle()
-    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+    mainTitle := GetMainWinTitle()
+    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
     
     return (WinExist(mainTitle) || WinExist("ahk_exe " procName) || ProcessExist(procName)) ? true : false
 }
@@ -66,57 +66,57 @@ IsMitakeRunning() {
  * @param {String} customPath 可選的自訂執行檔路徑
  * @returns {Boolean} 啟動或聚焦是否成功
  */
-LaunchMitakeStock(customPath := "") {
+LaunchMitake(customPath := "") {
     ; 0. 驗證主顯示器解析度 (僅支援 1920x1080 或 2560x1440)
-    if !ValidatePrimaryDisplayResolution(true) {
+    if !ValidatePriRes(true) {
         return false
     }
 
-    mainWinTitle := GetMainWindowTitle()
-    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
-    timeoutStr := GetConfig("App", "Timeout", "15")
+    mainWinTitle := GetMainWinTitle()
+    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
+    timeoutStr := GetCfg("App", "Timeout", "15")
     timeout := Integer(timeoutStr)
 
     ; 1. 若主程式視窗已經存在，切換至主程式視窗並最大化
     if WinExist(mainWinTitle) || WinExist("ahk_exe " procName) {
-        LogMessage("三竹股市已在執行中，正在切換至主程式視窗...", "INFO")
-        return SwitchToMainWindow()
+        LogMsg("三竹股市已在執行中，正在切換至主程式視窗...", "INFO")
+        return SwitchToMainWin()
     } else if ProcessExist(procName) {
-        LogMessage("檢測到三竹股市程序運作中，等待主程式視窗出現...", "INFO")
+        LogMsg("檢測到三竹股市程序運作中，等待主程式視窗出現...", "INFO")
         if WinWait(mainWinTitle, , 5) || WinWait("ahk_exe " procName, , 5) {
-            return SwitchToMainWindow()
+            return SwitchToMainWin()
         }
     }
 
     ; 2. 確定執行檔路徑
-    targetPath := customPath != "" ? customPath : GetConfig("App", "Path", "D:\Program Files\MitakeGU\三竹股市.exe")
+    tgtPath := customPath != "" ? customPath : GetCfg("App", "Path", "D:\Program Files\MitakeGU\三竹股市.exe")
 
-    if !FileExist(targetPath) {
-        errMsg := Format("找不到三竹股市執行檔: {1}", targetPath)
-        LogMessage(errMsg, "ERROR")
+    if !FileExist(tgtPath) {
+        errMsg := Format("找不到三竹股市執行檔: {1}", tgtPath)
+        LogMsg(errMsg, "ERROR")
         MsgBox(errMsg "`n請確認安裝路徑或至 config/settings.ini 設定。", "錯誤", "Icon!")
         return false
     }
 
     ; 3. 執行程式
-    LogMessage(Format("正在啟動三竹股市: {1}", targetPath), "INFO")
-    SplitPath(targetPath, &fileName, &dirPath)
+    LogMsg(Format("正在啟動三竹股市: {1}", tgtPath), "INFO")
+    SplitPath(tgtPath, &fileName, &dirPath)
     
     try {
-        Run(targetPath, dirPath)
+        Run(tgtPath, dirPath)
     } catch as err {
-        LogMessage(Format("啟動失敗: {1}", err.Message), "ERROR")
+        LogMsg(Format("啟動失敗: {1}", err.Message), "ERROR")
         MsgBox(Format("無法啟動三竹股市：{1}", err.Message), "啟動失敗", "Icon!")
         return false
     }
 
     ; 4. 等待主程式視窗開啟 (同時兼容主標題或程序名稱)
     if WinWait(mainWinTitle, , timeout) || WinWait("ahk_exe " procName, , timeout) {
-        LogMessage("三竹股市主程式視窗已成功啟動。", "INFO")
+        LogMsg("三竹股市主程式視窗已成功啟動。", "INFO")
         Sleep(500)
-        return SwitchToMainWindow()
+        return SwitchToMainWin()
     } else {
-        LogMessage(Format("啟動三竹股市超時 ({1} 秒內未偵測到主程式視窗)。", timeout), "WARN")
+        LogMsg(Format("啟動三竹股市超時 ({1} 秒內未偵測到主程式視窗)。", timeout), "WARN")
         return false
     }
 }
@@ -128,11 +128,11 @@ LaunchMitakeStock(customPath := "") {
  * @returns {Boolean} 是否成功激活
  */
 ActivateMitake(target := 0) {
-    mainWinTitle := GetMainWindowTitle()
-    targetWin := (target != 0) ? target : mainWinTitle
-    hwnd := WinExist(targetWin)
+    mainWinTitle := GetMainWinTitle()
+    tgtWin := (target != 0) ? target : mainWinTitle
+    hwnd := WinExist(tgtWin)
     if !hwnd {
-        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
         hwnd := WinExist("ahk_exe " procName)
     }
     
@@ -157,7 +157,7 @@ ActivateMitake(target := 0) {
         WinMaximize(hwnd)
     }
     
-    LogMessage(Format("已將視窗 [{1}] (HWND: {2}) 切換至最前台並最大化。", targetWin, hwnd), "INFO")
+    LogMsg(Format("已將視窗 [{1}] (HWND: {2}) 切換至最前台並最大化。", tgtWin, hwnd), "INFO")
     return true
 }
 
@@ -167,39 +167,39 @@ ActivateMitake(target := 0) {
  * 本函式支援聚焦視窗後傳送選單快捷鍵、相對座標點擊或圖像辨識定位點擊。
  * @returns {Boolean} 執行是否成功
  */
-ToggleMitakeMenuBar() {
-    mainWinTitle := GetMainWindowTitle()
+ToggleMenuBar() {
+    mainWinTitle := GetMainWinTitle()
     
     if !WinExist(mainWinTitle) && !IsMitakeRunning() {
-        LogMessage("切換選單列失敗：三竹股市未開啟", "WARN")
+        LogMsg("切換選單列失敗：三竹股市未開啟", "WARN")
         return false
     }
     
     ; 僅主程式視窗有 menu bar，切換至主程式視窗
-    if !SwitchToMainWindow() {
+    if !SwitchToMainWin() {
         return false
     }
     
     ; 讀取設定檔中的觸發模式 (key, click, image)
-    mode := GetConfig("MenuBar", "TriggerMode", "click")
-    clickMethod := GetConfig("App", "ClickMethod", "physical")
+    mode := GetCfg("MenuBar", "TriggerMode", "click")
+    clickMethod := GetCfg("App", "ClickMethod", "physical")
     
     if (mode == "image") {
-        res := GetDisplayResolution(0)
+        res := GetRes(0)
         imgPath := Format("assets/{1}/menu.png", res.str)
         if !FileExist(imgPath) {
             imgPath := Format("assets/menu_{1}.png", res.str)
         }
         if !FileExist(imgPath) {
-            imgPath := GetConfig("MenuBar", "ImagePath", "assets/1920x1080/menu.png")
+            imgPath := GetCfg("MenuBar", "ImagePath", "assets/1920x1080/menu.png")
         }
-        imgRes := FindAndClickImage(imgPath, 0, 0, 1200, 400, 30, mainWinTitle)
+        imgRes := FindClickImg(imgPath, 0, 0, 1200, 400, 30, mainWinTitle)
         if imgRes.found {
             return true
         } else {
             ; 影像辨識退回預設座標點擊
-            res := GetDisplayResolution(0)
-            coords := GetResolutionClickCoords("MenuBar", 35, 45, res.str)
+            res := GetRes(0)
+            coords := GetResCoords("MenuBar", 35, 45, res.str)
             clickX := coords.x
             clickY := coords.y
             if (clickMethod == "control") {
@@ -211,13 +211,13 @@ ToggleMitakeMenuBar() {
                 Click(clickX, clickY)
                 CoordMode("Mouse", oldMouse)
             }
-            LogMessage(Format("圖像搜尋未找到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, clickX, clickY), "WARN")
+            LogMsg(Format("圖像搜尋未找到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, clickX, clickY), "WARN")
             return true
         }
     } else if (mode == "click") {
         ; 模擬點擊選單按鈕 (依解析度由 settings.ini 讀取)
-        res := GetDisplayResolution(0)
-        coords := GetResolutionClickCoords("MenuBar", 35, 45, res.str)
+        res := GetRes(0)
+        coords := GetResCoords("MenuBar", 35, 45, res.str)
         clickX := coords.x
         clickY := coords.y
         if (clickMethod == "control") {
@@ -229,12 +229,12 @@ ToggleMitakeMenuBar() {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("已對三竹股市視窗進行選單點擊 (解析度: {1}, X:{2}, Y:{3})", res.str, clickX, clickY), "INFO")
+        LogMsg(Format("已對三竹股市視窗進行選單點擊 (解析度: {1}, X:{2}, Y:{3})", res.str, clickX, clickY), "INFO")
     } else {
         ; 傳送選單按鍵 (預設傳送 Alt 鍵)
-        triggerKey := GetConfig("MenuBar", "TriggerKey", "{Alt}")
+        triggerKey := GetCfg("MenuBar", "TriggerKey", "{Alt}")
         Send(triggerKey)
-        LogMessage(Format("已發送選單列快捷鍵: {1}", triggerKey), "INFO")
+        LogMsg(Format("已發送選單列快捷鍵: {1}", triggerKey), "INFO")
     }
     
     return true
@@ -242,17 +242,17 @@ ToggleMitakeMenuBar() {
 
 /**
  * 取得圖像寬度與高度
- * @param {String} imagePath 圖像路徑
+ * @param {String} imgPath 圖像路徑
  * @param {VarRef} width 傳出寬度
  * @param {VarRef} height 傳出高度
  */
-GetImageSize(imagePath, &width, &height) {
+GetImgSize(imgPath, &width, &height) {
     width := 20, height := 20
-    if !FileExist(imagePath)
+    if !FileExist(imgPath)
         return
     try {
         g := Gui()
-        pic := g.Add("Pic",, imagePath)
+        pic := g.Add("Pic",, imgPath)
         ControlGetPos(,, &w, &h, pic.Hwnd)
         g.Destroy()
         if (w > 0 && h > 0) {
@@ -266,26 +266,26 @@ GetImageSize(imagePath, &width, &height) {
 
 /**
  * 透過 ImageSearch 尋找目標圖像按鈕並點擊圖案中心點
- * @param {String} imagePath 圖像檔案路徑
+ * @param {String} imgPath 圖像檔案路徑
  * @param {Integer} winX1 搜尋區域左上 X
  * @param {Integer} winY1 搜尋區域左上 Y
  * @param {Integer} winX2 搜尋區域右下 X
  * @param {Integer} winY2 搜尋區域右下 Y
  * @param {Integer} variation 色彩容許度 (0-255)
- * @param {String} targetWin 指定目標視窗 (若未指定則使用主程式視窗)
+ * @param {String} tgtWin 指定目標視窗 (若未指定則使用主程式視窗)
  * @param {Boolean} shouldActivate 是否先激活視窗 (搜尋已展開之選單時應設為 false 以免關閉選單)
  * @returns {Object} {found: Boolean, x: Integer, y: Integer}
  */
-FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, variation := 30, targetWin := "", shouldActivate := true) {
-    if !FileExist(imagePath) {
-        LogMessage(Format("找不到搜尋圖像檔案: {1}", imagePath), "WARN")
+FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, variation := 30, tgtWin := "", shouldActivate := true) {
+    if !FileExist(imgPath) {
+        LogMsg(Format("找不到搜尋圖像檔案: {1}", imgPath), "WARN")
         return {found: false, x: 0, y: 0}
     }
     
-    winTitle := (targetWin != "") ? targetWin : GetMainWindowTitle()
+    winTitle := (tgtWin != "") ? tgtWin : GetMainWinTitle()
     hwnd := WinExist(winTitle)
     if !hwnd {
-        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
         hwnd := WinExist("ahk_exe " procName)
     }
     if !hwnd {
@@ -300,14 +300,14 @@ FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400
     oldMouse := CoordMode("Mouse", "Client")
     
     try {
-        searchSpec := Format("*{} {}", variation, imagePath)
+        searchSpec := Format("*{} {}", variation, imgPath)
         
         if ImageSearch(&foundX, &foundY, winX1, winY1, winX2, winY2, searchSpec) {
-            GetImageSize(imagePath, &imgW, &imgH)
+            GetImgSize(imgPath, &imgW, &imgH)
             targetX := foundX + (imgW // 2)
             targetY := foundY + (imgH // 2)
             
-            clickMethod := GetConfig("App", "ClickMethod", "physical")
+            clickMethod := GetCfg("App", "ClickMethod", "physical")
             
             if (clickMethod == "control") {
                 ControlClick(Format("X{} Y{}", targetX, targetY), hwnd)
@@ -320,19 +320,19 @@ FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400
                 Click(targetX, targetY)
             }
             
-            LogMessage(Format("圖像辨識成功 ({1})，圖案尺寸({2}x{3})，已用[{4}]點擊中心座標 ({5}, {6})", imagePath, imgW, imgH, clickMethod, targetX, targetY), "INFO")
+            LogMsg(Format("圖像辨識成功 ({1})，圖案尺寸({2}x{3})，已用[{4}]點擊中心座標 ({5}, {6})", imgPath, imgW, imgH, clickMethod, targetX, targetY), "INFO")
             
             CoordMode("Pixel", oldPixel)
             CoordMode("Mouse", oldMouse)
             return {found: true, x: targetX, y: targetY}
         }
     } catch as err {
-        LogMessage(Format("ImageSearch 執行異常: {1}", err.Message), "WARN")
+        LogMsg(Format("ImageSearch 執行異常: {1}", err.Message), "WARN")
     }
     
     CoordMode("Pixel", oldPixel)
     CoordMode("Mouse", oldMouse)
-    LogMessage(Format("圖像辨識未找到匹配項目: {1}", imagePath), "WARN")
+    LogMsg(Format("圖像辨識未找到匹配項目: {1}", imgPath), "WARN")
     return {found: false, x: 0, y: 0}
 }
 
@@ -340,7 +340,7 @@ FindAndClickImage(imagePath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400
  * 取得專案根目錄路徑
  * @returns {String} 專案根目錄絕對路徑
  */
-GetProjectRootDir() {
+GetRootDir() {
     static rootDir := ""
     if (rootDir != "")
         return rootDir
@@ -363,28 +363,28 @@ GetProjectRootDir() {
 /**
  * 取得指定資產圖檔的路徑，優先匹配當前主顯示器解析度 (或指定解析度)
  * @param {String} assetName 圖檔名稱 (如 "menu_證券行情.png" 或 "盤後排行.png")
- * @param {String} targetRes 可選的目標解析度 (例: "2560x1440" 或 "1920x1080")，預設抓取主顯示器解析度
+ * @param {String} tgtRes 可選的目標解析度 (例: "2560x1440" 或 "1920x1080")，預設抓取主顯示器解析度
  * @returns {String} 解析後的圖檔完整路徑
  */
-GetAssetImagePath(assetName, targetRes := "") {
+GetAssetImgPath(assetName, tgtRes := "") {
     if !InStr(assetName, ".") {
         assetName .= ".png"
     }
-    if (targetRes == "") {
-        res := GetDisplayResolution(0)
-        targetRes := res.str
+    if (tgtRes == "") {
+        res := GetRes(0)
+        tgtRes := res.str
     }
     
-    rootDir := GetProjectRootDir()
+    rootDir := GetRootDir()
     
     ; 1. 優先匹配 assets/{解析度}/{檔名} (例如 assets/2560x1440/盤後排行.png)
-    p1 := rootDir "\assets\" targetRes "\" assetName
+    p1 := rootDir "\assets\" tgtRes "\" assetName
     if FileExist(p1)
         return p1
         
     ; 2. 匹配向下相容命名 assets/{檔名無副檔名}_{解析度}.png
     nameNoExt := SubStr(assetName, 1, InStr(assetName, ".", , -1) - 1)
-    p2 := rootDir "\assets\" nameNoExt "_" targetRes ".png"
+    p2 := rootDir "\assets\" nameNoExt "_" tgtRes ".png"
     if FileExist(p2)
         return p2
         
@@ -413,34 +413,34 @@ GetAssetImagePath(assetName, targetRes := "") {
  * 亦支援 {Resolution}_ClickX / {Resolution}_ClickY 命名格式，
  * 若未設定則向後相容讀取 ClickX / ClickY，最後回傳傳入之預設值。
  * @param {String} section INI 區段名稱 (例: "SecuritiesQuote", "PopularRanking", "AfterMarketRanking")
- * @param {Integer} defaultX 備用 X 座標預設值
- * @param {Integer} defaultY 備用 Y 座標預設值
- * @param {String} targetRes 可選的目標解析度字串 (例: "1920x1080" 或 "2560x1440")，預設抓取主顯示器解析度
+ * @param {Integer} defX 備用 X 座標預設值
+ * @param {Integer} defY 備用 Y 座標預設值
+ * @param {String} tgtRes 可選的目標解析度字串 (例: "1920x1080" 或 "2560x1440")，預設抓取主顯示器解析度
  * @returns {Object} {x: Integer, y: Integer}
  */
-GetResolutionClickCoords(section, defaultX := 0, defaultY := 0, targetRes := "") {
-    if (targetRes == "") {
-        res := GetDisplayResolution(0)
-        targetRes := res.str
+GetResCoords(section, defX := 0, defY := 0, tgtRes := "") {
+    if (tgtRes == "") {
+        res := GetRes(0)
+        tgtRes := res.str
     }
     
     ; 1. 優先嘗試讀取 ClickX_{解析度} 或 {解析度}_ClickX
-    valX := GetConfig(section, "ClickX_" targetRes, "")
+    valX := GetCfg(section, "ClickX_" tgtRes, "")
     if (valX == "") {
-        valX := GetConfig(section, targetRes "_ClickX", "")
+        valX := GetCfg(section, tgtRes "_ClickX", "")
     }
     
-    valY := GetConfig(section, "ClickY_" targetRes, "")
+    valY := GetCfg(section, "ClickY_" tgtRes, "")
     if (valY == "") {
-        valY := GetConfig(section, targetRes "_ClickY", "")
+        valY := GetCfg(section, tgtRes "_ClickY", "")
     }
     
     ; 2. 若未設定，降級向後相容讀取一般通用 ClickX / ClickY
     if (valX == "") {
-        valX := GetConfig(section, "ClickX", String(defaultX))
+        valX := GetCfg(section, "ClickX", String(defX))
     }
     if (valY == "") {
-        valY := GetConfig(section, "ClickY", String(defaultY))
+        valY := GetCfg(section, "ClickY", String(defY))
     }
     
     return {x: Integer(valX), y: Integer(valY)}
@@ -452,34 +452,34 @@ GetResolutionClickCoords(section, defaultX := 0, defaultY := 0, targetRes := "")
  * 參照 assets/{resolution}/menu_證券行情.png 進行圖像辨識定位與點擊
  * @returns {Boolean} 點擊是否成功
  */
-ClickSecuritiesQuoteMenu() {
-    mainWinTitle := GetMainWindowTitle()
+ClickSecQuoteMenu() {
+    mainWinTitle := GetMainWinTitle()
     
     ; 點擊 menu bar「證券行情」前應先切換到主程式視窗
-    if !SwitchToMainWindow() {
-        LogMessage("點擊證券行情失敗：無法切換至主程式視窗", "WARN")
+    if !SwitchToMainWin() {
+        LogMsg("點擊證券行情失敗：無法切換至主程式視窗", "WARN")
         return false
     }
     
     Sleep(200) ; 確保切換至主程式視窗並渲染就緒
     
-    res := GetDisplayResolution(0)
-    imgPath := GetAssetImagePath("menu_證券行情.png")
+    res := GetRes(0)
+    imgPath := GetAssetImgPath("menu_證券行情.png")
     searchW := (res.width >= 2560) ? 2000 : 1200
     searchH := (res.height >= 1440) ? 500 : 350
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
+    imgRes := FindClickImg(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
     if imgRes.found {
-        LogMessage("已成功透過圖像辨識點擊「證券行情」。", "INFO")
+        LogMsg("已成功透過圖像辨識點擊「證券行情」。", "INFO")
         return true
     } else {
         ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊
-        defaultX := 337
-        defaultY := (res.str == "1920x1080") ? 15 : 14
-        coords := GetResolutionClickCoords("SecuritiesQuote", defaultX, defaultY, res.str)
+        defX := 337
+        defY := (res.str == "1920x1080") ? 15 : 14
+        coords := GetResCoords("SecuritiesQuote", defX, defY, res.str)
         clickX := coords.x
         clickY := coords.y
-        clickMethod := GetConfig("App", "ClickMethod", "physical")
+        clickMethod := GetCfg("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
@@ -488,7 +488,7 @@ ClickSecuritiesQuoteMenu() {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
+        LogMsg(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
         return true
     }
 }
@@ -501,35 +501,35 @@ ClickSecuritiesQuoteMenu() {
  * @param {Integer} timeout 等待新視窗超時秒數 (預設 5 秒)
  * @returns {Boolean} 點擊是否成功
  */
-ClickPopularRankingMenu(waitNewWindow := true, timeout := 5) {
+ClickPopRankMenu(waitNewWindow := true, timeout := 5) {
     ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
-    if !ClickSecuritiesQuoteMenu() {
-        LogMessage("點擊熱門排行失敗：開啟證券行情選單未成功", "WARN")
+    if !ClickSecQuoteMenu() {
+        LogMsg("點擊熱門排行失敗：開啟證券行情選單未成功", "WARN")
         return false
     }
     
     Sleep(300) ; 等待選單展開
     
     ; 2. 尋找與點擊「熱門排行」 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
-    mainWinTitle := GetMainWindowTitle()
-    res := GetDisplayResolution(0)
-    imgPath := GetAssetImagePath("熱門排行.png")
+    mainWinTitle := GetMainWinTitle()
+    res := GetRes(0)
+    imgPath := GetAssetImgPath("熱門排行.png")
     searchW := (res.width >= 2560) ? 2000 : 1200
     searchH := (res.height >= 1440) ? 750 : 500
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
+    imgRes := FindClickImg(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
     clicked := false
     if imgRes.found {
-        LogMessage("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
+        LogMsg("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
         clicked := true
     } else {
         ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
-        defaultX := (res.str == "1920x1080") ? 77 : 78
-        defaultY := 80
-        coords := GetResolutionClickCoords("PopularRanking", defaultX, defaultY, res.str)
+        defX := (res.str == "1920x1080") ? 77 : 78
+        defY := 80
+        coords := GetResCoords("PopularRanking", defX, defY, res.str)
         clickX := coords.x
         clickY := coords.y
-        clickMethod := GetConfig("App", "ClickMethod", "physical")
+        clickMethod := GetCfg("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
@@ -538,21 +538,21 @@ ClickPopularRankingMenu(waitNewWindow := true, timeout := 5) {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
+        LogMsg(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
         clicked := true
     }
     
     ; 3. 點擊後出現新視窗且 WinTitle 為 "熱門排行"
     if (clicked && waitNewWindow) {
-        popWinTitle := GetPopularRankingWindowTitle()
-        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        popWinTitle := GetPopRankWinTitle()
+        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
         hwnd := 0
         if WinWait(popWinTitle, , timeout) || WinWait(popWinTitle " ahk_exe " procName, , timeout) {
             hwnd := WinExist(popWinTitle) ? WinExist(popWinTitle) : WinExist(popWinTitle " ahk_exe " procName)
             ActivateMitake(hwnd)
-            LogMessage(Format("已偵測到「熱門排行」新視窗 ({1}) 並最大化顯示", popWinTitle), "INFO")
+            LogMsg(Format("已偵測到「熱門排行」新視窗 ({1}) 並最大化顯示", popWinTitle), "INFO")
         } else {
-            LogMessage(Format("等待「熱門排行」新視窗 ({1}) 出現超時 ({2} 秒)", popWinTitle, timeout), "WARN")
+            LogMsg(Format("等待「熱門排行」新視窗 ({1}) 出現超時 ({2} 秒)", popWinTitle, timeout), "WARN")
         }
     }
     
@@ -567,35 +567,35 @@ ClickPopularRankingMenu(waitNewWindow := true, timeout := 5) {
  * @param {Integer} timeout 等待新視窗超時秒數 (預設 5 秒)
  * @returns {Boolean} 點擊是否成功
  */
-ClickAfterMarketRankingMenu(waitNewWindow := true, timeout := 5) {
+ClickAfterRankMenu(waitNewWindow := true, timeout := 5) {
     ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
-    if !ClickSecuritiesQuoteMenu() {
-        LogMessage("點擊盤後排行失敗：開啟證券行情選單未成功", "WARN")
+    if !ClickSecQuoteMenu() {
+        LogMsg("點擊盤後排行失敗：開啟證券行情選單未成功", "WARN")
         return false
     }
     
     Sleep(300) ; 等待選單展開
     
     ; 2. 尋找與點擊「盤後排行」 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
-    mainWinTitle := GetMainWindowTitle()
-    res := GetDisplayResolution(0)
-    imgPath := GetAssetImagePath("盤後排行.png")
+    mainWinTitle := GetMainWinTitle()
+    res := GetRes(0)
+    imgPath := GetAssetImgPath("盤後排行.png")
     searchW := (res.width >= 2560) ? 2000 : 1200
     searchH := (res.height >= 1440) ? 750 : 500
     
-    imgRes := FindAndClickImage(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
+    imgRes := FindClickImg(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
     clicked := false
     if imgRes.found {
-        LogMessage("已成功透過圖像辨識點擊「盤後排行」。", "INFO")
+        LogMsg("已成功透過圖像辨識點擊「盤後排行」。", "INFO")
         clicked := true
     } else {
         ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
-        defaultX := 78
-        defaultY := 110
-        coords := GetResolutionClickCoords("AfterMarketRanking", defaultX, defaultY, res.str)
+        defX := 78
+        defY := 110
+        coords := GetResCoords("AfterMarketRanking", defX, defY, res.str)
         clickX := coords.x
         clickY := coords.y
-        clickMethod := GetConfig("App", "ClickMethod", "physical")
+        clickMethod := GetCfg("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
@@ -604,21 +604,21 @@ ClickAfterMarketRankingMenu(waitNewWindow := true, timeout := 5) {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
+        LogMsg(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
         clicked := true
     }
     
     ; 3. 點擊後出現新視窗且 WinTitle 為 "盤後排行"
     if (clicked && waitNewWindow) {
-        afterWinTitle := GetAfterMarketRankingWindowTitle()
-        procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+        afterWinTitle := GetAfterRankWinTitle()
+        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
         hwnd := 0
         if WinWait(afterWinTitle, , timeout) || WinWait(afterWinTitle " ahk_exe " procName, , timeout) {
             hwnd := WinExist(afterWinTitle) ? WinExist(afterWinTitle) : WinExist(afterWinTitle " ahk_exe " procName)
             ActivateMitake(hwnd)
-            LogMessage(Format("已偵測到「盤後排行」新視窗 ({1}) 並最大化顯示", afterWinTitle), "INFO")
+            LogMsg(Format("已偵測到「盤後排行」新視窗 ({1}) 並最大化顯示", afterWinTitle), "INFO")
         } else {
-            LogMessage(Format("等待「盤後排行」新視窗 ({1}) 出現超時 ({2} 秒)", afterWinTitle, timeout), "WARN")
+            LogMsg(Format("等待「盤後排行」新視窗 ({1}) 出現超時 ({2} 秒)", afterWinTitle, timeout), "WARN")
         }
     }
     
@@ -631,18 +631,18 @@ ClickAfterMarketRankingMenu(waitNewWindow := true, timeout := 5) {
  * @param {Integer} timeout 等待視窗出現之超時秒數 (預設 5 秒)
  * @returns {Boolean} 切換或開啟是否成功
  */
-SwitchToPopularRankingWindow(timeout := 5) {
-    popWinTitle := GetPopularRankingWindowTitle()
-    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+SwitchToPopRankWin(timeout := 5) {
+    popWinTitle := GetPopRankWinTitle()
+    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
     hwnd := WinExist(popWinTitle) ? WinExist(popWinTitle) : WinExist(popWinTitle " ahk_exe " procName)
     if hwnd {
         ActivateMitake(hwnd)
-        LogMessage(Format("已切換至現有的「熱門排行」視窗: {1}", popWinTitle), "INFO")
+        LogMsg(Format("已切換至現有的「熱門排行」視窗: {1}", popWinTitle), "INFO")
         return true
     }
     
-    LogMessage("「熱門排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
-    return ClickPopularRankingMenu(true, timeout)
+    LogMsg("「熱門排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
+    return ClickPopRankMenu(true, timeout)
 }
 
 /**
@@ -651,18 +651,16 @@ SwitchToPopularRankingWindow(timeout := 5) {
  * @param {Integer} timeout 等待視窗出現之超時秒數 (預設 5 秒)
  * @returns {Boolean} 切換或開啟是否成功
  */
-SwitchToAfterMarketRankingWindow(timeout := 5) {
-    afterWinTitle := GetAfterMarketRankingWindowTitle()
-    procName := GetConfig("App", "ProcessName", "三竹股市.exe")
+SwitchToAfterRankWin(timeout := 5) {
+    afterWinTitle := GetAfterRankWinTitle()
+    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
     hwnd := WinExist(afterWinTitle) ? WinExist(afterWinTitle) : WinExist(afterWinTitle " ahk_exe " procName)
     if hwnd {
         ActivateMitake(hwnd)
-        LogMessage(Format("已切換至現有的「盤後排行」視窗: {1}", afterWinTitle), "INFO")
+        LogMsg(Format("已切換至現有的「盤後排行」視窗: {1}", afterWinTitle), "INFO")
         return true
     }
     
-    LogMessage("「盤後排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
-    return ClickAfterMarketRankingMenu(true, timeout)
+    LogMsg("「盤後排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
+    return ClickAfterRankMenu(true, timeout)
 }
-
-

@@ -39,6 +39,7 @@
 三竹/
 ├── README.md             # 專案初始化與說明文件
 ├── AGENTS.md             # 專案 AI Agent 指引與規範文件
+├── ABBREVIATIONS.md      # 變數與函式命名縮寫對照表
 ├── Mitake.ahk            # 主程式進入點 (Main entry)
 ├── assets/               # 圖像辨識與圖資目錄
 │   ├── 1920x1080/        # 1920x1080 解析度圖檔目錄
@@ -111,6 +112,27 @@
 11. **階層式自繪選單之過渡展開延遲（Dropdown Animation Latency）**：
    - 三竹股市為自繪式介面，點擊第一層主選單（如「證券行情」）後，下拉選單展開渲染需要時間（約 200~300ms）。
    - 若在點擊主選單後立即執行子選單項目（如「熱門排行」）之 `ImageSearch`，會因視覺元件尚未渲染完成而比對失敗並誤觸座標備援；因此在兩層點擊之間必須插入適當的緩衝延遲（如 `Sleep(300)`）。
+12. **AHK v2 CLI 動態腳本執行限制（無 `/e` 參數）**：
+   - AHK v2 命令列不支援如 Python / Node.js 的 `/e` 或 `-e` 參數，若傳入 `/e` 會被 AHK 視為欲執行的腳本檔案路徑（導致報錯 `Script file not found`）。
+   - 解決方案：若需透過 CLI 動態執行腳本字串而不落地檔案，需將腳本透過管道傳入標準輸入，並指定 `*` 參數（例如：`@' ... '@ | & "AutoHotkey64.exe" /ErrorStdOut *`）。
+13. **GUI 彈窗函式與單元測試解耦（Headless / Test Friendly）**：
+   - 涉及阻斷式使用者互動（如 `MsgBox` 警告）的業務函式，若未解耦直接納入單元測試，會導致測試程序遭彈窗阻塞掛起。
+   - 解決方案：函式應提供抑制或控制 UI 彈窗的參數（如 `showMsgBox := true`），單元測試時傳入 `false` 僅驗證狀態回傳值與日誌記錄。
+14. **多顯示器虛擬桌面座標系統之邊界計算**：
+   - 在多螢幕環境中，若副螢幕位於主螢幕左方或上方，其邊界座標可能為負數（如 `Left = -1920, Top = 0, Right = 0, Bottom = 1080`）。
+   - 解決方案：計算解析度時切勿將 `Right` / `Bottom` 直接當作寬高，必須使用差值計算：`Width := Right - Left`、`Height := Bottom - Top`。
+15. **AHK v2 靜態檢查特性下的 TDD 骨架先行原則（Stub Skeleton）**：
+   - AHK v2 於載入期即對調用函式進行語法與宣告檢查。若在 TDD 紅燈階段直接測試完全未宣告的函式，會引發載入期致命錯誤（`Call to nonexistent function`）而中斷整個測試執行器，無法產生完整測試報告。
+   - 解決方案：實踐 TDD 時，建議先宣告該函式的空白骨架（Stub，如回傳預設空值或 false），再執行紅燈測試驗證斷言失敗。
+16. **AHK v2 邏輯運算子短路求值與回傳型態（Short-Circuit Operator Return Value Coercion）**：
+   - 在 AutoHotkey v2 中，邏輯運算子 `||` 與 `&&` 具備短路求值特性，並直接回傳求值所命中的運算元本身（Truthy/Falsy Operand），而非強制轉為布林值 `true` / `false`。
+   - 例如：`WinExist(winTitle) || ProcessExist(procName)` 當有視窗或程序存在時，會回傳整數控制代碼 (HWND 如 `0x104b2`) 或程序 PID (如 `5420`)。
+   - 若呼叫端或單元測試進行嚴格比較（如 `result == true`），由於 AHK v2 中的 `true` 等同於整數 `1`，`5420 == 1` 將評估為 `false`，導致測試斷言失敗。
+   - 解決方案：宣告回傳值為布林值（`@returns {Boolean}`）的函式，必須使用三元運算子 `(condition) ? true : false` 或 `!(...)` 明確強制收斂為布林值。
+17. **CLI 命令路徑之環境變數無關性（PATH Independence）**：
+   - 在 Windows PowerShell、背景 Task 或 CI/CD 環境中，AutoHotkey 通常未預設加入系統全域 PATH，直接呼叫 `AutoHotkey64.exe` 會引發 `CommandNotFoundException` (Exit Code 1)。
+   - 解決方案：所有與 AutoHotkey 相關之 CLI 指令，務必一律使用完整路徑（如 `"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"`）執行。
+
 
 ---
 
