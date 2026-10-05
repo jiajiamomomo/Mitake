@@ -167,6 +167,53 @@ Test_ActivateMitake_RestoreMinimized() {
     mockGui.Destroy()
 }
 
+Test_GetResolutionClickCoords_DualResolutions() {
+    ; 測試 SecuritiesQuote 在 1920x1080 與 2560x1440 兩個解析度下的降級座標
+    sq1080 := GetResolutionClickCoords("SecuritiesQuote", 0, 0, "1920x1080")
+    Assert.AssertEquals(337, sq1080.x, "SecuritiesQuote 1920x1080 ClickX should be 337")
+    Assert.AssertEquals(15, sq1080.y, "SecuritiesQuote 1920x1080 ClickY should be 15")
+
+    sq1440 := GetResolutionClickCoords("SecuritiesQuote", 0, 0, "2560x1440")
+    Assert.AssertEquals(337, sq1440.x, "SecuritiesQuote 2560x1440 ClickX should be 337")
+    Assert.AssertEquals(14, sq1440.y, "SecuritiesQuote 2560x1440 ClickY should be 14")
+
+    ; 測試 PopularRanking 在 1920x1080 與 2560x1440 兩個解析度下的降級座標
+    pop1080 := GetResolutionClickCoords("PopularRanking", 0, 0, "1920x1080")
+    Assert.AssertEquals(77, pop1080.x, "PopularRanking 1920x1080 ClickX should be 77")
+    Assert.AssertEquals(80, pop1080.y, "PopularRanking 1920x1080 ClickY should be 80")
+
+    pop1440 := GetResolutionClickCoords("PopularRanking", 0, 0, "2560x1440")
+    Assert.AssertEquals(78, pop1440.x, "PopularRanking 2560x1440 ClickX should be 78")
+    Assert.AssertEquals(80, pop1440.y, "PopularRanking 2560x1440 ClickY should be 80")
+
+    ; 測試 AfterMarketRanking 在 1920x1080 與 2560x1440 兩個解析度下的降級座標
+    after1080 := GetResolutionClickCoords("AfterMarketRanking", 0, 0, "1920x1080")
+    Assert.AssertEquals(78, after1080.x, "AfterMarketRanking 1920x1080 ClickX should be 78")
+    Assert.AssertEquals(110, after1080.y, "AfterMarketRanking 1920x1080 ClickY should be 110")
+
+    after1440 := GetResolutionClickCoords("AfterMarketRanking", 0, 0, "2560x1440")
+    Assert.AssertEquals(78, after1440.x, "AfterMarketRanking 2560x1440 ClickX should be 78")
+    Assert.AssertEquals(110, after1440.y, "AfterMarketRanking 2560x1440 ClickY should be 110")
+
+    ; 測試 MenuBar 在 1920x1080 與 2560x1440 兩個解析度下的座標
+    mb1080 := GetResolutionClickCoords("MenuBar", 0, 0, "1920x1080")
+    Assert.AssertEquals(35, mb1080.x, "MenuBar 1920x1080 ClickX should be 35")
+    Assert.AssertEquals(45, mb1080.y, "MenuBar 1920x1080 ClickY should be 45")
+
+    mb1440 := GetResolutionClickCoords("MenuBar", 0, 0, "2560x1440")
+    Assert.AssertEquals(35, mb1440.x, "MenuBar 2560x1440 ClickX should be 35")
+    Assert.AssertEquals(45, mb1440.y, "MenuBar 2560x1440 ClickY should be 45")
+
+    ; 測試備援與相容模式：不存在之區段應回傳給定預設值
+    fallback := GetResolutionClickCoords("NonExistentSection", 99, 199, "1920x1080")
+    Assert.AssertEquals(99, fallback.x, "Non-existent section should fallback to default X")
+    Assert.AssertEquals(199, fallback.y, "Non-existent section should fallback to default Y")
+
+    ; 測試未指定目標解析度時，應自動採用主顯示器解析度並回傳有效座標
+    autoRes := GetResolutionClickCoords("SecuritiesQuote", 0, 0)
+    Assert.AssertTrue(autoRes.x > 0 && autoRes.y > 0, "Auto resolution should return positive coords")
+}
+
 RunWindowControlTests() {
     FileAppend("Running Window Control Tests...`n", "*")
     Test_IsMitakeRunning_ReturnType()
@@ -187,5 +234,6 @@ RunWindowControlTests() {
     Test_SwitchToAfterMarketRankingWindow_ReturnType()
     Test_WindowSwitching_WithMockGuis()
     Test_ActivateMitake_RestoreMinimized()
+    Test_GetResolutionClickCoords_DualResolutions()
 }
 

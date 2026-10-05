@@ -16,6 +16,7 @@ Source Tree:
 │       ├── menu_證券行情.png
 │       ├── 熱門排行.png
 │       └── 盤後排行.png
+├── bypass.bat
 ├── config
 │   └── settings.ini
 ├── lib
@@ -270,6 +271,16 @@ HotkeyAfterMarketRankingHandler(HotkeyName) {
 2. 涉及股票看盤與交易相關操作時，請務必謹慎確認腳本邏輯，避免誤觸下單或操作錯誤。
 
 ```
+`bypass.bat`:
+
+```bat
+@echo off
+:: 這個腳本被三竹呼叫後會直接閃退，藉此阻止 Excel 自動開啟
+:: 最新生成的 CSV 檔案仍會順利保存在 MitakeGU\USER\OUT\ 資料夾中
+
+exit
+
+```
 `config\settings.ini`:
 
 ```ini
@@ -292,18 +303,34 @@ AfterMarketRankingHotkey =
 [MenuBar]
 TriggerMode = click
 TriggerKey = {Alt}
+ClickX_1920x1080 = 35
+ClickY_1920x1080 = 45
+ClickX_2560x1440 = 35
+ClickY_2560x1440 = 45
 ClickX = 35
 ClickY = 45
 
 [SecuritiesQuote]
+ClickX_1920x1080 = 337
+ClickY_1920x1080 = 15
+ClickX_2560x1440 = 337
+ClickY_2560x1440 = 14
 ClickX = 337
 ClickY = 14
 
 [PopularRanking]
+ClickX_1920x1080 = 77
+ClickY_1920x1080 = 80
+ClickX_2560x1440 = 78
+ClickY_2560x1440 = 80
 ClickX = 78
 ClickY = 80
 
 [AfterMarketRanking]
+ClickX_1920x1080 = 78
+ClickY_1920x1080 = 110
+ClickX_2560x1440 = 78
+ClickY_2560x1440 = 110
 ClickX = 78
 ClickY = 110
 ```
@@ -694,8 +721,10 @@ ToggleMitakeMenuBar() {
             return true
         } else {
             ; 影像辨識退回預設座標點擊
-            clickX := Integer(GetConfig("MenuBar", "ClickX", "35"))
-            clickY := Integer(GetConfig("MenuBar", "ClickY", "45"))
+            res := GetDisplayResolution(0)
+            coords := GetResolutionClickCoords("MenuBar", 35, 45, res.str)
+            clickX := coords.x
+            clickY := coords.y
             if (clickMethod == "control") {
                 ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
             } else {
@@ -705,13 +734,15 @@ ToggleMitakeMenuBar() {
                 Click(clickX, clickY)
                 CoordMode("Mouse", oldMouse)
             }
-            LogMessage(Format("圖像搜尋未找到，降級採用座標點擊 (X:{1}, Y:{2})", clickX, clickY), "WARN")
+            LogMessage(Format("圖像搜尋未找到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, clickX, clickY), "WARN")
             return true
         }
     } else if (mode == "click") {
-        ; 模擬點擊選單按鈕 (預設座標可由 settings.ini 自訂)
-        clickX := Integer(GetConfig("MenuBar", "ClickX", "35"))
-        clickY := Integer(GetConfig("MenuBar", "ClickY", "45"))
+        ; 模擬點擊選單按鈕 (依解析度由 settings.ini 讀取)
+        res := GetDisplayResolution(0)
+        coords := GetResolutionClickCoords("MenuBar", 35, 45, res.str)
+        clickX := coords.x
+        clickY := coords.y
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
         } else {
@@ -721,7 +752,7 @@ ToggleMitakeMenuBar() {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("已對三竹股市視窗進行選單點擊 (X:{1}, Y:{2})", clickX, clickY), "INFO")
+        LogMessage(Format("已對三竹股市視窗進行選單點擊 (解析度: {1}, X:{2}, Y:{3})", res.str, clickX, clickY), "INFO")
     } else {
         ; 傳送選單按鍵 (預設傳送 Alt 鍵)
         triggerKey := GetConfig("MenuBar", "TriggerKey", "{Alt}")
@@ -900,6 +931,45 @@ GetAssetImagePath(assetName, targetRes := "") {
 }
 
 /**
+ * 取得指定區段在指定解析度 (或當前主顯示器解析度) 下的降級點擊座標
+ * 優先讀取 ClickX_{Resolution} / ClickY_{Resolution} (例如 ClickX_1920x1080, ClickX_2560x1440)，
+ * 亦支援 {Resolution}_ClickX / {Resolution}_ClickY 命名格式，
+ * 若未設定則向後相容讀取 ClickX / ClickY，最後回傳傳入之預設值。
+ * @param {String} section INI 區段名稱 (例: "SecuritiesQuote", "PopularRanking", "AfterMarketRanking")
+ * @param {Integer} defaultX 備用 X 座標預設值
+ * @param {Integer} defaultY 備用 Y 座標預設值
+ * @param {String} targetRes 可選的目標解析度字串 (例: "1920x1080" 或 "2560x1440")，預設抓取主顯示器解析度
+ * @returns {Object} {x: Integer, y: Integer}
+ */
+GetResolutionClickCoords(section, defaultX := 0, defaultY := 0, targetRes := "") {
+    if (targetRes == "") {
+        res := GetDisplayResolution(0)
+        targetRes := res.str
+    }
+    
+    ; 1. 優先嘗試讀取 ClickX_{解析度} 或 {解析度}_ClickX
+    valX := GetConfig(section, "ClickX_" targetRes, "")
+    if (valX == "") {
+        valX := GetConfig(section, targetRes "_ClickX", "")
+    }
+    
+    valY := GetConfig(section, "ClickY_" targetRes, "")
+    if (valY == "") {
+        valY := GetConfig(section, targetRes "_ClickY", "")
+    }
+    
+    ; 2. 若未設定，降級向後相容讀取一般通用 ClickX / ClickY
+    if (valX == "") {
+        valX := GetConfig(section, "ClickX", String(defaultX))
+    }
+    if (valY == "") {
+        valY := GetConfig(section, "ClickY", String(defaultY))
+    }
+    
+    return {x: Integer(valX), y: Integer(valY)}
+}
+
+/**
  * 點擊「三竹股市」選單列的「證券行情」項目
  * 僅主程式視窗具備 menu bar，點擊前應先切換到主程式視窗 (WinTitle: "三竹股市")
  * 參照 assets/{resolution}/menu_證券行情.png 進行圖像辨識定位與點擊
@@ -926,9 +996,12 @@ ClickSecuritiesQuoteMenu() {
         LogMessage("已成功透過圖像辨識點擊「證券行情」。", "INFO")
         return true
     } else {
-        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊
-        clickX := Integer(GetConfig("SecuritiesQuote", "ClickX", "337"))
-        clickY := Integer(GetConfig("SecuritiesQuote", "ClickY", "14"))
+        ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊
+        defaultX := 337
+        defaultY := (res.str == "1920x1080") ? 15 : 14
+        coords := GetResolutionClickCoords("SecuritiesQuote", defaultX, defaultY, res.str)
+        clickX := coords.x
+        clickY := coords.y
         clickMethod := GetConfig("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
@@ -938,7 +1011,7 @@ ClickSecuritiesQuoteMenu() {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
+        LogMessage(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
         return true
     }
 }
@@ -973,9 +1046,12 @@ ClickPopularRankingMenu(waitNewWindow := true, timeout := 5) {
         LogMessage("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
         clicked := true
     } else {
-        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
-        clickX := Integer(GetConfig("PopularRanking", "ClickX", "78"))
-        clickY := Integer(GetConfig("PopularRanking", "ClickY", "80"))
+        ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
+        defaultX := (res.str == "1920x1080") ? 77 : 78
+        defaultY := 80
+        coords := GetResolutionClickCoords("PopularRanking", defaultX, defaultY, res.str)
+        clickX := coords.x
+        clickY := coords.y
         clickMethod := GetConfig("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
@@ -985,7 +1061,7 @@ ClickPopularRankingMenu(waitNewWindow := true, timeout := 5) {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
+        LogMessage(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
         clicked := true
     }
     
@@ -1036,9 +1112,12 @@ ClickAfterMarketRankingMenu(waitNewWindow := true, timeout := 5) {
         LogMessage("已成功透過圖像辨識點擊「盤後排行」。", "INFO")
         clicked := true
     } else {
-        ; 影像搜尋若未比對成功，降級採用預設相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
-        clickX := Integer(GetConfig("AfterMarketRanking", "ClickX", "78"))
-        clickY := Integer(GetConfig("AfterMarketRanking", "ClickY", "110"))
+        ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
+        defaultX := 78
+        defaultY := 110
+        coords := GetResolutionClickCoords("AfterMarketRanking", defaultX, defaultY, res.str)
+        clickX := coords.x
+        clickY := coords.y
         clickMethod := GetConfig("App", "ClickMethod", "physical")
         if (clickMethod == "control") {
             ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
@@ -1048,7 +1127,7 @@ ClickAfterMarketRankingMenu(waitNewWindow := true, timeout := 5) {
             Click(clickX, clickY)
             CoordMode("Mouse", oldMouse)
         }
-        LogMessage(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用座標點擊 (X:{2}, Y:{3})", imgPath, clickX, clickY), "WARN")
+        LogMessage(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
         clicked := true
     }
     
