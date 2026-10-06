@@ -29,27 +29,22 @@ TestCoordinateClick(targetSection, targetName, showDialog := true) {
     oldMouse := CoordMode("Mouse", "Client")
     oldToolTip := CoordMode("ToolTip", "Client")
     
+    TipAndClick(stepStr, itemName, x, y) {
+        ToolTip(Format("【{1}】即將點擊【{2}】`n解析度: {3}`n座標: ({4}, {5})", stepStr, itemName, res.str, x, y), x, y + 25)
+        MouseMove(x, y, 10)
+        Sleep(800)
+        Click(x, y)
+        ToolTip()
+    }
+
     ; 2. 步驟一：移動並點擊「證券行情」
-    sqCoords := GetResCoords("SecuritiesQuote", 337, (res.str == "1920x1080") ? 15 : 14, res.str)
-    ToolTip(Format("【1/2】即將點擊【證券行情】`n解析度: {1}`n座標: ({2}, {3})", res.str, sqCoords.x, sqCoords.y), sqCoords.x, sqCoords.y + 25)
-    MouseMove(sqCoords.x, sqCoords.y, 10)
-    Sleep(800)
-    Click(sqCoords.x, sqCoords.y)
-    ToolTip()
-    
-    ; 等待選單下拉展開動畫
+    sqCoords := GetResCoords("SecuritiesQuote")
+    TipAndClick("1/2", "證券行情", sqCoords.x, sqCoords.y)
     Sleep(400)
     
     ; 3. 步驟二：移動並點擊目標排行子選單
-    defX := (targetSection == "PopularRanking") ? ((res.str == "1920x1080") ? 77 : 78) : 78
-    defY := (targetSection == "PopularRanking") ? 80 : 110
-    tgtCoords := GetResCoords(targetSection, defX, defY, res.str)
-    
-    ToolTip(Format("【2/2】即將點擊【{1}】`n解析度: {2}`n座標: ({3}, {4})", targetName, res.str, tgtCoords.x, tgtCoords.y), tgtCoords.x, tgtCoords.y + 25)
-    MouseMove(tgtCoords.x, tgtCoords.y, 10)
-    Sleep(800)
-    Click(tgtCoords.x, tgtCoords.y)
-    ToolTip()
+    tgtCoords := GetResCoords(targetSection)
+    TipAndClick("2/2", targetName, tgtCoords.x, tgtCoords.y)
     
     ; 還原 CoordMode
     CoordMode("Mouse", oldMouse)
@@ -61,7 +56,7 @@ TestCoordinateClick(targetSection, targetName, showDialog := true) {
     
     success := false
     if WinWait(tgtWinTitle, , 5) || WinWait(tgtWinTitle " ahk_exe " procName, , 5) {
-        hwnd := WinExist(tgtWinTitle) ? WinExist(tgtWinTitle) : WinExist(tgtWinTitle " ahk_exe " procName)
+        hwnd := FindMitakeWin(tgtWinTitle)
         ActivateMitake(hwnd)
         success := true
         LogMsg(Format("相對座標點擊測試成功：已開啟【{1}】視窗 (HWND: {2})", targetName, hwnd), "INFO")

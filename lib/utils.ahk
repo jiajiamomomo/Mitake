@@ -23,6 +23,30 @@ EnsureIniEnc(iniPath) {
 }
 
 /**
+ * 取得專案根目錄路徑
+ * @returns {String} 專案根目錄絕對路徑
+ */
+GetRootDir() {
+    static rootDir := ""
+    if (rootDir != "")
+        return rootDir
+    
+    dir := A_ScriptDir
+    Loop 5 {
+        if (FileExist(dir "\Mitake.ahk") || FileExist(dir "\config\settings.ini") || FileExist(dir "\assets")) {
+            rootDir := dir
+            return rootDir
+        }
+        SplitPath(dir, , &parent)
+        if (parent == dir || parent == "")
+            break
+        dir := parent
+    }
+    rootDir := A_ScriptDir
+    return rootDir
+}
+
+/**
  * 取得設定檔內容
  * @param {String} section 區段名稱
  * @param {String} key 鍵名
@@ -32,12 +56,7 @@ EnsureIniEnc(iniPath) {
 GetCfg(section, key, defVal := "") {
     static iniPath := ""
     if (iniPath == "") {
-        if FileExist(A_ScriptDir "\config\settings.ini")
-            iniPath := A_ScriptDir "\config\settings.ini"
-        else if FileExist(A_ScriptDir "\..\config\settings.ini")
-            iniPath := A_ScriptDir "\..\config\settings.ini"
-        else
-            iniPath := A_ScriptDir "\config\settings.ini"
+        iniPath := GetRootDir() "\config\settings.ini"
     }
     if !FileExist(iniPath) {
         return defVal
@@ -60,12 +79,7 @@ LogMsg(msg, level := "INFO") {
     static logDir := ""
     static logFile := ""
     if (logDir == "") {
-        if DirExist(A_ScriptDir "\logs") || FileExist(A_ScriptDir "\Mitake.ahk")
-            logDir := A_ScriptDir "\logs"
-        else if DirExist(A_ScriptDir "\..\logs") || FileExist(A_ScriptDir "\..\Mitake.ahk")
-            logDir := A_ScriptDir "\..\logs"
-        else
-            logDir := A_ScriptDir "\logs"
+        logDir := GetRootDir() "\logs"
         logFile := logDir "\app.log"
     }
     

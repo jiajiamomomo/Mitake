@@ -37,6 +37,7 @@
 | `EnsureIniEncoding` | `EnsureIniEnc` | 確保 INI 使用 UTF-16 LE 編碼 |
 | `GetConfig` | `GetCfg` | 讀取 INI 設定檔內容 |
 | `LogMessage` | `LogMsg` | 寫入執行日誌 |
+| `GetProjectRootDir` | `GetRootDir` | 取得專案根目錄 |
 | `GetDisplayResolution` | `GetRes` | 取得指定/主顯示器解析度資訊 |
 | `GetAllDisplaysResolution` | `GetAllRes` | 取得所有顯示器解析度列表 |
 | `IsSupportedDisplayResolution` | `IsSupportedRes` | 檢查解析度是否受支援 |
@@ -48,6 +49,8 @@
 | `GetMainWindowTitle` | `GetMainWinTitle` | 取得三竹主視窗 WinTitle |
 | `GetPopularRankingWindowTitle` | `GetPopRankWinTitle` | 取得「熱門排行」視窗 WinTitle |
 | `GetAfterMarketRankingWindowTitle` | `GetAfterRankWinTitle` | 取得「盤後排行」視窗 WinTitle |
+| `FindMitakeWindow` | `FindMitakeWin` | 尋找三竹股市相關視窗 HWND |
+| `ClickClientPoint` | `ClickPoint` | 視窗客戶區座標點擊 (支援 control 與 physical) |
 | `SwitchToMainWindow` | `SwitchToMainWin` | 切換至主程式視窗 |
 | `IsMitakeRunning` | `IsMitakeRunning` | 檢查三竹股市是否執行中 |
 | `LaunchMitakeStock` | `LaunchMitake` | 啟動或聚焦三竹股市 |
@@ -55,18 +58,20 @@
 | `ToggleMitakeMenuBar` | `ToggleMenuBar` | 切換或開啟選單列 |
 | `GetImageSize` | `GetImgSize` | 取得圖檔寬度與高度 |
 | `FindAndClickImage` | `FindClickImg` | 影像搜尋並點擊中心點 |
-| `GetProjectRootDir` | `GetRootDir` | 取得專案根目錄 |
 | `GetAssetImagePath` | `GetAssetImgPath` | 取得資產圖檔路徑 |
 | `GetResolutionClickCoords` | `GetResCoords` | 取得指定解析度點擊座標 |
 | `ClickSecuritiesQuoteMenu` | `ClickSecQuoteMenu` | 點擊「證券行情」選單 |
+| `ClickRankingMenu` | `ClickRankMenu` | 通用點擊「證券行情」下拉排行項目並等待視窗 |
 | `ClickPopularRankingMenu` | `ClickPopRankMenu` | 點擊「熱門排行」選單 |
 | `ClickAfterMarketRankingMenu` | `ClickAfterRankMenu` | 點擊「盤後排行」選單 |
+| `SwitchToSubWindow` | `SwitchToSubWin` | 通用切換或開啟子視窗 |
 | `SwitchToPopularRankingWindow` | `SwitchToPopRankWin` | 切換至「熱門排行」視窗 |
 | `SwitchToAfterMarketRankingWindow` | `SwitchToAfterRankWin` | 切換至「盤後排行」視窗 |
 
-### `Mitake.ahk` (Handlers)
+### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |
 | :--- | :--- | :--- |
+| `RegisterHotkey` | `RegisterHk` | 註冊快捷鍵設定與日誌記錄輔助函式 |
 | `ShellMessage` | `ShellMsg` | ShellHook 監聽處理常式 |
 | `MenuLaunchHandler` | `MenuLaunchHnd` | 托盤「啟動/切換 三竹股市」處理函式 |
 | `MenuToggleMenuBarHandler` | `MenuToggleBarHnd` | 托盤「切換選單列」處理函式 |

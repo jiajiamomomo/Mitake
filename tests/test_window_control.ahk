@@ -48,45 +48,29 @@ Test_ClickAfterRankMenu_ReturnType() {
 }
 
 Test_GetAssetImgPath_2560x1440() {
-    ; 測試針對 2560x1440 解析度的三個新增圖檔能被精確定位
-    pathMenu := GetAssetImgPath("menu_證券行情.png", "2560x1440")
-    Assert.AssertTrue(FileExist(pathMenu) != "", "menu_證券行情.png should exist for 2560x1440")
-    Assert.AssertTrue(InStr(pathMenu, "2560x1440") > 0, "pathMenu should resolve to 2560x1440 directory")
-
-    pathPopular := GetAssetImgPath("熱門排行.png", "2560x1440")
-    Assert.AssertTrue(FileExist(pathPopular) != "", "熱門排行.png should exist for 2560x1440")
-    Assert.AssertTrue(InStr(pathPopular, "2560x1440") > 0, "pathPopular should resolve to 2560x1440 directory")
-
-    pathAfterMarket := GetAssetImgPath("盤後排行.png", "2560x1440")
-    Assert.AssertTrue(FileExist(pathAfterMarket) != "", "盤後排行.png should exist for 2560x1440")
-    Assert.AssertTrue(InStr(pathAfterMarket, "2560x1440") > 0, "pathAfterMarket should resolve to 2560x1440 directory")
+    assets := ["menu_證券行情.png", "熱門排行.png", "盤後排行.png"]
+    for asset in assets {
+        p := GetAssetImgPath(asset, "2560x1440")
+        Assert.AssertTrue(FileExist(p) != "", Format("{1} should exist for 2560x1440", asset))
+        Assert.AssertTrue(InStr(p, "2560x1440") > 0, Format("{1} should resolve to 2560x1440 directory", asset))
+    }
 }
 
 Test_GetAssetImgPath_1920x1080() {
-    ; 測試針對 1920x1080 解析度圖檔亦能正常定位
-    pathMenu := GetAssetImgPath("menu_證券行情.png", "1920x1080")
-    Assert.AssertTrue(FileExist(pathMenu) != "", "menu_證券行情.png should exist for 1920x1080")
-
-    pathPopular := GetAssetImgPath("熱門排行.png", "1920x1080")
-    Assert.AssertTrue(FileExist(pathPopular) != "", "熱門排行.png should exist for 1920x1080")
-
-    pathAfterMarket := GetAssetImgPath("盤後排行.png", "1920x1080")
-    Assert.AssertTrue(FileExist(pathAfterMarket) != "", "盤後排行.png should exist for 1920x1080")
+    assets := ["menu_證券行情.png", "熱門排行.png", "盤後排行.png"]
+    for asset in assets {
+        p := GetAssetImgPath(asset, "1920x1080")
+        Assert.AssertTrue(FileExist(p) != "", Format("{1} should exist for 1920x1080", asset))
+    }
 }
 
 Test_AssetImageSizes_2560x1440() {
-    ; 驗證 2560x1440 圖檔尺寸有效
-    pMenu := GetAssetImgPath("menu_證券行情.png", "2560x1440")
-    GetImgSize(pMenu, &w1, &h1)
-    Assert.AssertTrue(w1 > 0 && h1 > 0, "2560x1440 menu_證券行情.png dimensions should be valid")
-
-    pPopular := GetAssetImgPath("熱門排行.png", "2560x1440")
-    GetImgSize(pPopular, &w2, &h2)
-    Assert.AssertTrue(w2 > 0 && h2 > 0, "2560x1440 熱門排行.png dimensions should be valid")
-
-    pAfterMarket := GetAssetImgPath("盤後排行.png", "2560x1440")
-    GetImgSize(pAfterMarket, &w3, &h3)
-    Assert.AssertTrue(w3 > 0 && h3 > 0, "2560x1440 盤後排行.png dimensions should be valid")
+    assets := ["menu_證券行情.png", "熱門排行.png", "盤後排行.png"]
+    for asset in assets {
+        p := GetAssetImgPath(asset, "2560x1440")
+        GetImgSize(p, &w, &h)
+        Assert.AssertTrue(w > 0 && h > 0, Format("2560x1440 {1} dimensions should be valid", asset))
+    }
 }
 
 Test_GetImgSize_Fallback() {
@@ -168,41 +152,21 @@ Test_ActivateMitake_RestoreMinimized() {
 }
 
 Test_GetResCoords_DualResolutions() {
-    ; 測試 SecuritiesQuote 在 1920x1080 與 2560x1440 兩個解析度下的降級座標
-    sq1080 := GetResCoords("SecuritiesQuote", 0, 0, "1920x1080")
-    Assert.AssertEquals(337, sq1080.x, "SecuritiesQuote 1920x1080 ClickX should be 337")
-    Assert.AssertEquals(15, sq1080.y, "SecuritiesQuote 1920x1080 ClickY should be 15")
-
-    sq1440 := GetResCoords("SecuritiesQuote", 0, 0, "2560x1440")
-    Assert.AssertEquals(337, sq1440.x, "SecuritiesQuote 2560x1440 ClickX should be 337")
-    Assert.AssertEquals(14, sq1440.y, "SecuritiesQuote 2560x1440 ClickY should be 14")
-
-    ; 測試 PopularRanking 在 1920x1080 與 2560x1440 兩個解析度下的降級座標
-    pop1080 := GetResCoords("PopularRanking", 0, 0, "1920x1080")
-    Assert.AssertEquals(77, pop1080.x, "PopularRanking 1920x1080 ClickX should be 77")
-    Assert.AssertEquals(80, pop1080.y, "PopularRanking 1920x1080 ClickY should be 80")
-
-    pop1440 := GetResCoords("PopularRanking", 0, 0, "2560x1440")
-    Assert.AssertEquals(78, pop1440.x, "PopularRanking 2560x1440 ClickX should be 78")
-    Assert.AssertEquals(80, pop1440.y, "PopularRanking 2560x1440 ClickY should be 80")
-
-    ; 測試 AfterMarketRanking 在 1920x1080 與 2560x1440 兩個解析度下的降級座標
-    after1080 := GetResCoords("AfterMarketRanking", 0, 0, "1920x1080")
-    Assert.AssertEquals(78, after1080.x, "AfterMarketRanking 1920x1080 ClickX should be 78")
-    Assert.AssertEquals(110, after1080.y, "AfterMarketRanking 1920x1080 ClickY should be 110")
-
-    after1440 := GetResCoords("AfterMarketRanking", 0, 0, "2560x1440")
-    Assert.AssertEquals(78, after1440.x, "AfterMarketRanking 2560x1440 ClickX should be 78")
-    Assert.AssertEquals(110, after1440.y, "AfterMarketRanking 2560x1440 ClickY should be 110")
-
-    ; 測試 MenuBar 在 1920x1080 與 2560x1440 兩個解析度下的座標
-    mb1080 := GetResCoords("MenuBar", 0, 0, "1920x1080")
-    Assert.AssertEquals(35, mb1080.x, "MenuBar 1920x1080 ClickX should be 35")
-    Assert.AssertEquals(45, mb1080.y, "MenuBar 1920x1080 ClickY should be 45")
-
-    mb1440 := GetResCoords("MenuBar", 0, 0, "2560x1440")
-    Assert.AssertEquals(35, mb1440.x, "MenuBar 2560x1440 ClickX should be 35")
-    Assert.AssertEquals(45, mb1440.y, "MenuBar 2560x1440 ClickY should be 45")
+    cases := [
+        {sec: "SecuritiesQuote", res: "1920x1080", expX: 337, expY: 15},
+        {sec: "SecuritiesQuote", res: "2560x1440", expX: 337, expY: 14},
+        {sec: "PopularRanking", res: "1920x1080", expX: 77, expY: 80},
+        {sec: "PopularRanking", res: "2560x1440", expX: 78, expY: 80},
+        {sec: "AfterMarketRanking", res: "1920x1080", expX: 78, expY: 110},
+        {sec: "AfterMarketRanking", res: "2560x1440", expX: 78, expY: 110},
+        {sec: "MenuBar", res: "1920x1080", expX: 35, expY: 45},
+        {sec: "MenuBar", res: "2560x1440", expX: 35, expY: 45}
+    ]
+    for c in cases {
+        coords := GetResCoords(c.sec, 0, 0, c.res)
+        Assert.AssertEquals(c.expX, coords.x, Format("{1} {2} ClickX should be {3}", c.sec, c.res, c.expX))
+        Assert.AssertEquals(c.expY, coords.y, Format("{1} {2} ClickY should be {3}", c.sec, c.res, c.expY))
+    }
 
     ; 測試備援與相容模式：不存在之區段應回傳給定預設值
     fallback := GetResCoords("NonExistentSection", 99, 199, "1920x1080")
@@ -217,6 +181,16 @@ Test_GetResCoords_DualResolutions() {
         Assert.AssertEquals(337, autoRes.x, "Auto resolution under 1920x1080 should return ClickX 337")
         Assert.AssertEquals(15, autoRes.y, "Auto resolution under 1920x1080 should return ClickY 15")
     }
+}
+
+Test_FindMitakeWin() {
+    h := FindMitakeWin("NonExistentWindow_98765")
+    Assert.AssertEquals(0, h, "FindMitakeWin should return 0 for non-existent window")
+}
+
+Test_ClickPoint() {
+    ClickPoint(0, 0, "NonExistentWindow_98765", false)
+    Assert.AssertTrue(true, "ClickPoint should execute safely without throwing")
 }
 
 RunWindowControlTests() {
@@ -240,4 +214,6 @@ RunWindowControlTests() {
     Test_WindowSwitching_WithMockGuis()
     Test_ActivateMitake_RestoreMinimized()
     Test_GetResCoords_DualResolutions()
+    Test_FindMitakeWin()
+    Test_ClickPoint()
 }

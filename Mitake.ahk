@@ -33,55 +33,30 @@ ShellMsg(wParam, lParam, *) {
     }
 }
 
-; 讀取快捷鍵設定
-launchHk := GetCfg("Hotkey", "LaunchHotkey", "^!m")
-if launchHk != "" {
-    try {
-        Hotkey(launchHk, HkLaunchHnd)
-        LogMsg(Format("已成功設定啟動快捷鍵: {1}", launchHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定快捷鍵 [{1}] 失敗: {2}", launchHk, err.Message), "WARN")
+; 註冊快捷鍵輔助函式
+RegisterHk(cfgKey, defKey, desc, handler) {
+    hk := GetCfg("Hotkey", cfgKey, defKey)
+    if (hk != "") {
+        try {
+            Hotkey(hk, handler)
+            LogMsg(Format("已成功設定{1}快捷鍵: {2}", desc, hk), "INFO")
+        } catch as err {
+            LogMsg(Format("綁定{1}快捷鍵 [{2}] 失敗: {3}", desc, hk, err.Message), "WARN")
+        }
     }
 }
 
-menubarHk := GetCfg("Hotkey", "MenuBarHotkey", "^!b")
-if menubarHk != "" {
-    try {
-        Hotkey(menubarHk, HkMenuBarHnd)
-        LogMsg(Format("已成功設定選單列快捷鍵: {1}", menubarHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定選單列快捷鍵 [{1}] 失敗: {2}", menubarHk, err.Message), "WARN")
-    }
-}
+; 快捷鍵與功能對應表
+hkDefs := [
+    {cfg: "LaunchHotkey",             def: "^!m", desc: "啟動",     hnd: (*) => LaunchMitake()},
+    {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: (*) => ToggleMenuBar()},
+    {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
+    {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
+    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()}
+]
 
-secQuoteHk := GetCfg("Hotkey", "SecuritiesQuoteHotkey", "")
-if secQuoteHk != "" {
-    try {
-        Hotkey(secQuoteHk, HkSecQuoteHnd)
-        LogMsg(Format("已成功設定證券行情快捷鍵: {1}", secQuoteHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定證券行情快捷鍵 [{1}] 失敗: {2}", secQuoteHk, err.Message), "WARN")
-    }
-}
-
-popRankHk := GetCfg("Hotkey", "PopularRankingHotkey", "")
-if popRankHk != "" {
-    try {
-        Hotkey(popRankHk, HkPopRankHnd)
-        LogMsg(Format("已成功設定熱門排行快捷鍵: {1}", popRankHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定熱門排行快捷鍵 [{1}] 失敗: {2}", popRankHk, err.Message), "WARN")
-    }
-}
-
-afterRankHk := GetCfg("Hotkey", "AfterMarketRankingHotkey", "")
-if afterRankHk != "" {
-    try {
-        Hotkey(afterRankHk, HkAfterRankHnd)
-        LogMsg(Format("已成功設定盤後排行快捷鍵: {1}", afterRankHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定盤後排行快捷鍵 [{1}] 失敗: {2}", afterRankHk, err.Message), "WARN")
-    }
+for item in hkDefs {
+    RegisterHk(item.cfg, item.def, item.desc, item.hnd)
 }
 
 mainRes := GetRes()
@@ -90,51 +65,18 @@ LogMsg(Format("三竹股市 AutoHotkey 控制腳本載入完成。主顯示器�
 ; 執行主程序：啟動或切換至三竹股市
 LaunchMitake()
 
-MenuLaunchHnd(ItemName, ItemPos, MyMenu) {
-    LaunchMitake()
-}
+; 托盤選單處理函式 (保持命名兼容性)
+MenuLaunchHnd(*)   => LaunchMitake()
+MenuToggleBarHnd(*) => ToggleMenuBar()
+MenuSecQuoteHnd(*)  => ClickSecQuoteMenu()
+MenuPopRankHnd(*)   => SwitchToPopRankWin()
+MenuAfterRankHnd(*)  => SwitchToAfterRankWin()
 
-MenuToggleBarHnd(ItemName, ItemPos, MyMenu) {
-    ToggleMenuBar()
-}
-
-MenuSecQuoteHnd(ItemName, ItemPos, MyMenu) {
-    ClickSecQuoteMenu()
-}
-
-MenuPopRankHnd(ItemName, ItemPos, MyMenu) {
-    SwitchToPopRankWin()
-}
-
-MenuAfterRankHnd(ItemName, ItemPos, MyMenu) {
-    SwitchToAfterRankWin()
-}
-
-MenuShowResHnd(ItemName, ItemPos, MyMenu) {
+MenuShowResHnd(*) {
     displays := GetAllRes()
     info := ""
     for idx, d in displays {
         info .= Format("顯示器 #{1}: {2} ({3}x{4}) {5}`n", idx, d.str, d.width, d.height, d.isPrimary ? "[主顯示器]" : "")
     }
     MsgBox(info, "系統顯示器解析度資訊", "Iconi")
-}
-
-HkLaunchHnd(HotkeyName) {
-    LaunchMitake()
-}
-
-HkMenuBarHnd(HotkeyName) {
-    ToggleMenuBar()
-}
-
-HkSecQuoteHnd(HotkeyName) {
-    ClickSecQuoteMenu()
-}
-
-HkPopRankHnd(HotkeyName) {
-    SwitchToPopRankWin()
-}
-
-HkAfterRankHnd(HotkeyName) {
-    SwitchToAfterRankWin()
 }

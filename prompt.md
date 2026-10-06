@@ -71,6 +71,7 @@ Source Tree:
 | `EnsureIniEncoding` | `EnsureIniEnc` | 確保 INI 使用 UTF-16 LE 編碼 |
 | `GetConfig` | `GetCfg` | 讀取 INI 設定檔內容 |
 | `LogMessage` | `LogMsg` | 寫入執行日誌 |
+| `GetProjectRootDir` | `GetRootDir` | 取得專案根目錄 |
 | `GetDisplayResolution` | `GetRes` | 取得指定/主顯示器解析度資訊 |
 | `GetAllDisplaysResolution` | `GetAllRes` | 取得所有顯示器解析度列表 |
 | `IsSupportedDisplayResolution` | `IsSupportedRes` | 檢查解析度是否受支援 |
@@ -82,6 +83,8 @@ Source Tree:
 | `GetMainWindowTitle` | `GetMainWinTitle` | 取得三竹主視窗 WinTitle |
 | `GetPopularRankingWindowTitle` | `GetPopRankWinTitle` | 取得「熱門排行」視窗 WinTitle |
 | `GetAfterMarketRankingWindowTitle` | `GetAfterRankWinTitle` | 取得「盤後排行」視窗 WinTitle |
+| `FindMitakeWindow` | `FindMitakeWin` | 尋找三竹股市相關視窗 HWND |
+| `ClickClientPoint` | `ClickPoint` | 視窗客戶區座標點擊 (支援 control 與 physical) |
 | `SwitchToMainWindow` | `SwitchToMainWin` | 切換至主程式視窗 |
 | `IsMitakeRunning` | `IsMitakeRunning` | 檢查三竹股市是否執行中 |
 | `LaunchMitakeStock` | `LaunchMitake` | 啟動或聚焦三竹股市 |
@@ -89,18 +92,20 @@ Source Tree:
 | `ToggleMitakeMenuBar` | `ToggleMenuBar` | 切換或開啟選單列 |
 | `GetImageSize` | `GetImgSize` | 取得圖檔寬度與高度 |
 | `FindAndClickImage` | `FindClickImg` | 影像搜尋並點擊中心點 |
-| `GetProjectRootDir` | `GetRootDir` | 取得專案根目錄 |
 | `GetAssetImagePath` | `GetAssetImgPath` | 取得資產圖檔路徑 |
 | `GetResolutionClickCoords` | `GetResCoords` | 取得指定解析度點擊座標 |
 | `ClickSecuritiesQuoteMenu` | `ClickSecQuoteMenu` | 點擊「證券行情」選單 |
+| `ClickRankingMenu` | `ClickRankMenu` | 通用點擊「證券行情」下拉排行項目並等待視窗 |
 | `ClickPopularRankingMenu` | `ClickPopRankMenu` | 點擊「熱門排行」選單 |
 | `ClickAfterMarketRankingMenu` | `ClickAfterRankMenu` | 點擊「盤後排行」選單 |
+| `SwitchToSubWindow` | `SwitchToSubWin` | 通用切換或開啟子視窗 |
 | `SwitchToPopularRankingWindow` | `SwitchToPopRankWin` | 切換至「熱門排行」視窗 |
 | `SwitchToAfterMarketRankingWindow` | `SwitchToAfterRankWin` | 切換至「盤後排行」視窗 |
 
-### `Mitake.ahk` (Handlers)
+### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |
 | :--- | :--- | :--- |
+| `RegisterHotkey` | `RegisterHk` | 註冊快捷鍵設定與日誌記錄輔助函式 |
 | `ShellMessage` | `ShellMsg` | ShellHook 監聽處理常式 |
 | `MenuLaunchHandler` | `MenuLaunchHnd` | 托盤「啟動/切換 三竹股市」處理函式 |
 | `MenuToggleMenuBarHandler` | `MenuToggleBarHnd` | 托盤「切換選單列」處理函式 |
@@ -153,55 +158,30 @@ ShellMsg(wParam, lParam, *) {
     }
 }
 
-; 讀取快捷鍵設定
-launchHk := GetCfg("Hotkey", "LaunchHotkey", "^!m")
-if launchHk != "" {
-    try {
-        Hotkey(launchHk, HkLaunchHnd)
-        LogMsg(Format("已成功設定啟動快捷鍵: {1}", launchHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定快捷鍵 [{1}] 失敗: {2}", launchHk, err.Message), "WARN")
+; 註冊快捷鍵輔助函式
+RegisterHk(cfgKey, defKey, desc, handler) {
+    hk := GetCfg("Hotkey", cfgKey, defKey)
+    if (hk != "") {
+        try {
+            Hotkey(hk, handler)
+            LogMsg(Format("已成功設定{1}快捷鍵: {2}", desc, hk), "INFO")
+        } catch as err {
+            LogMsg(Format("綁定{1}快捷鍵 [{2}] 失敗: {3}", desc, hk, err.Message), "WARN")
+        }
     }
 }
 
-menubarHk := GetCfg("Hotkey", "MenuBarHotkey", "^!b")
-if menubarHk != "" {
-    try {
-        Hotkey(menubarHk, HkMenuBarHnd)
-        LogMsg(Format("已成功設定選單列快捷鍵: {1}", menubarHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定選單列快捷鍵 [{1}] 失敗: {2}", menubarHk, err.Message), "WARN")
-    }
-}
+; 快捷鍵與功能對應表
+hkDefs := [
+    {cfg: "LaunchHotkey",             def: "^!m", desc: "啟動",     hnd: (*) => LaunchMitake()},
+    {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: (*) => ToggleMenuBar()},
+    {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
+    {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
+    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()}
+]
 
-secQuoteHk := GetCfg("Hotkey", "SecuritiesQuoteHotkey", "")
-if secQuoteHk != "" {
-    try {
-        Hotkey(secQuoteHk, HkSecQuoteHnd)
-        LogMsg(Format("已成功設定證券行情快捷鍵: {1}", secQuoteHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定證券行情快捷鍵 [{1}] 失敗: {2}", secQuoteHk, err.Message), "WARN")
-    }
-}
-
-popRankHk := GetCfg("Hotkey", "PopularRankingHotkey", "")
-if popRankHk != "" {
-    try {
-        Hotkey(popRankHk, HkPopRankHnd)
-        LogMsg(Format("已成功設定熱門排行快捷鍵: {1}", popRankHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定熱門排行快捷鍵 [{1}] 失敗: {2}", popRankHk, err.Message), "WARN")
-    }
-}
-
-afterRankHk := GetCfg("Hotkey", "AfterMarketRankingHotkey", "")
-if afterRankHk != "" {
-    try {
-        Hotkey(afterRankHk, HkAfterRankHnd)
-        LogMsg(Format("已成功設定盤後排行快捷鍵: {1}", afterRankHk), "INFO")
-    } catch as err {
-        LogMsg(Format("綁定盤後排行快捷鍵 [{1}] 失敗: {2}", afterRankHk, err.Message), "WARN")
-    }
+for item in hkDefs {
+    RegisterHk(item.cfg, item.def, item.desc, item.hnd)
 }
 
 mainRes := GetRes()
@@ -210,53 +190,20 @@ LogMsg(Format("三竹股市 AutoHotkey 控制腳本載入完成。主顯示器�
 ; 執行主程序：啟動或切換至三竹股市
 LaunchMitake()
 
-MenuLaunchHnd(ItemName, ItemPos, MyMenu) {
-    LaunchMitake()
-}
+; 托盤選單處理函式 (保持命名兼容性)
+MenuLaunchHnd(*)   => LaunchMitake()
+MenuToggleBarHnd(*) => ToggleMenuBar()
+MenuSecQuoteHnd(*)  => ClickSecQuoteMenu()
+MenuPopRankHnd(*)   => SwitchToPopRankWin()
+MenuAfterRankHnd(*)  => SwitchToAfterRankWin()
 
-MenuToggleBarHnd(ItemName, ItemPos, MyMenu) {
-    ToggleMenuBar()
-}
-
-MenuSecQuoteHnd(ItemName, ItemPos, MyMenu) {
-    ClickSecQuoteMenu()
-}
-
-MenuPopRankHnd(ItemName, ItemPos, MyMenu) {
-    SwitchToPopRankWin()
-}
-
-MenuAfterRankHnd(ItemName, ItemPos, MyMenu) {
-    SwitchToAfterRankWin()
-}
-
-MenuShowResHnd(ItemName, ItemPos, MyMenu) {
+MenuShowResHnd(*) {
     displays := GetAllRes()
     info := ""
     for idx, d in displays {
         info .= Format("顯示器 #{1}: {2} ({3}x{4}) {5}`n", idx, d.str, d.width, d.height, d.isPrimary ? "[主顯示器]" : "")
     }
     MsgBox(info, "系統顯示器解析度資訊", "Iconi")
-}
-
-HkLaunchHnd(HotkeyName) {
-    LaunchMitake()
-}
-
-HkMenuBarHnd(HotkeyName) {
-    ToggleMenuBar()
-}
-
-HkSecQuoteHnd(HotkeyName) {
-    ClickSecQuoteMenu()
-}
-
-HkPopRankHnd(HotkeyName) {
-    SwitchToPopRankWin()
-}
-
-HkAfterRankHnd(HotkeyName) {
-    SwitchToAfterRankWin()
 }
 
 ```
@@ -352,73 +299,70 @@ HkAfterRankHnd(HotkeyName) {
 
 ## 開發與踩坑注意事項 (Lessons Learned & Best Practices)
 
-1. **檔案編碼診斷原則**：
-   - 遇到可疑的文字或設定檔編碼異常時，優先檢查開頭的二進位標頭 (Magic Bytes / BOM)：`[System.IO.File]::ReadAllBytes(...)`，切勿僅依賴終端機輸出文字猜測。
-   - `FF FE` 為 UTF-16 LE；`EF BB BF` 為 UTF-8 with BOM。
-2. **INI 設定檔編碼限制**：
-   - Windows API (`GetPrivateProfileStringW` / AHK `IniRead`) 讀取中文時僅正確支援 **UTF-16 LE (含 BOM)** 或 ANSI。若儲存為無 BOM 的 UTF-8，Windows API 會將其視為 ANSI (CP950) 解析導致亂碼。因此 `config/settings.ini` 須維持由 `EnsureIniEncoding()` 所維護的 UTF-16 LE 格式。
-3. **PowerShell 與 CLI 語法注意事項**：
-   - 每次在 PowerShell 執行指令前，需確保 `[Console]::OutputEncoding` 設為 UTF-8 以免 stdout 顯示亂碼。
-   - 在 PowerShell 中，Jujutsu 的修訂符號 `@` 為關鍵字，必須以引號包裹（如 `jj bookmark set main -r "@"`）。
-   - AutoHotkey64.exe 為 GUI 程序，若需等待執行完畢並捕捉 ExitCode，應使用 `Start-Process -FilePath ... -ArgumentList ... -NoNewWindow -PassThru -Wait`。
-   - PowerShell 不支援 Bash Heredoc (`<< 'EOF'`)，應使用 Here-String (`@' ... '@`)。
-4. **多解析度座標適配**：
-   - 三竹股市在 1920x1080 與 2560x1440 解析度下 UI 座標不同，設定檔應分別以 `ClickX_{Resolution}` 與 `ClickY_{Resolution}` 記錄，並配合 `GetResolutionClickCoords()` 進行回退相容。
-5. **下拉選單與視窗焦點干擾（Popup Menu Dismissal）**：
-   - 點擊「證券行情」等展開下拉選單後，若後續搜尋子項目時再次呼叫 `WinActivate` 或 `WinMaximize`，系統會發送視窗啟用/重繪訊息而**立刻強制關閉已展開的下拉選單**，導致子項目（如「熱門排行」、「盤後排行」）圖像辨識永遠失敗。
-   - 解決方案：搜尋已展開的選單項目時應停用視窗啟用邏輯（`shouldActivate := false`），且若視窗已處於作用中（`WinActive`）或最大化時，切勿重複執行啟用或最大化。
-6. **Windows 最小化視窗解除與前台鎖定（ASFW）**：
-   - 在 Windows 10/11 中，對處於最小化（`WinGetMinMax == -1`）的視窗單純呼叫 `WinActivate` 無法可靠地將其還原（常只在工作列閃爍）。
-   - 解決方案：必須先檢測並呼叫 `WinRestore(hwnd)`，並配合 `DllCall("user32\AllowSetForegroundWindow", "Int", -1)` 與 `DllCall("user32\SetForegroundWindow", "Ptr", hwnd)` 突破前台鎖定，再進行激活與最大化。
-7. **同進程多視窗之標題精確匹配**：
-   - 「三竹股市」主程式視窗與新開啟的子視窗（「熱門排行」、「盤後排行」）屬於同一程序（`三竹股市.exe`），若僅以 `ahk_exe 三竹股市.exe` 當作 WinTitle，AHK 會抓到 Z 軸最頂層的視窗（可能是沒有選單列的子視窗）。
-   - 解決方案：必須以標題明確區分（如 `"三竹股市"`、`"熱門排行"`、`"盤後排行"`），或結合標題與進程名稱匹配（`WinTitle " ahk_exe " ProcessName`）。
-8. **背景 Session 與互動式桌面隔離（Session Isolation & UIPI）**：
-   - 命令列終端（PowerShell / 背景工作）受限於 Windows Session 隔離機制，無法直接枚舉或控制真實使用者互動桌面上的 GUI 視窗（`WinGetList` / `WinActive` 會回傳 0）。
-   - 撰寫單元測試時，測試焦點切換應以 `WinExist` 及函式回傳值驗證，避免依賴無桌面環境下的 `WinActive`；定位疑難問題時，以實體執行日誌 `logs/app.log` 留下的真實軌跡為準。
-9. **AHK GUI 腳本之常駐特性（Persistence）**：
-   - AHK v2 腳本一旦建立了 `Gui()` 物件，該腳本預設會變為常駐進程，除非在結尾明確呼叫 `ExitApp()`，否則命令列等待會持續掛起。
-10. **AHK CLI 測試執行器之主控台輸出捕捉（Console Output Redirection）**：
-   - `AutoHotkey64.exe` 本身為 Windows GUI 應用程式（`SUBSYSTEM_WINDOWS`），預設未附加主控台輸出緩衝區；即使使用 `FileAppend("...", "*")`，直接在命令列執行也不會將 stdout 列印至主控台。
-   - 解決方案：執行測試腳本時務必附加 `/ErrorStdOut` 參數，在 PowerShell 中使用調用運算子 `& "path"` 或經由管線重定向（`cmd /c '"..." /ErrorStdOut tests\run_tests.ahk | findstr "^"'`），方能即時獲取測試進度與摘要。
-11. **階層式自繪選單之過渡展開延遲（Dropdown Animation Latency）**：
-   - 三竹股市為自繪式介面，點擊第一層主選單（如「證券行情」）後，下拉選單展開渲染需要時間（約 200~300ms）。
-   - 若在點擊主選單後立即執行子選單項目（如「熱門排行」）之 `ImageSearch`，會因視覺元件尚未渲染完成而比對失敗並誤觸座標備援；因此在兩層點擊之間必須插入適當的緩衝延遲（如 `Sleep(300)`）。
-12. **AHK v2 CLI 動態腳本執行限制（無 `/e` 參數）**：
-   - AHK v2 命令列不支援如 Python / Node.js 的 `/e` 或 `-e` 參數，若傳入 `/e` 會被 AHK 視為欲執行的腳本檔案路徑（導致報錯 `Script file not found`）。
-   - 解決方案：若需透過 CLI 動態執行腳本字串而不落地檔案，需將腳本透過管道傳入標準輸入，並指定 `*` 參數（例如：`@' ... '@ | & "AutoHotkey64.exe" /ErrorStdOut *`）。
-13. **GUI 彈窗函式與單元測試解耦（Headless / Test Friendly）**：
-   - 涉及阻斷式使用者互動（如 `MsgBox` 警告）的業務函式，若未解耦直接納入單元測試，會導致測試程序遭彈窗阻塞掛起。
-   - 解決方案：函式應提供抑制或控制 UI 彈窗的參數（如 `showMsgBox := true`），單元測試時傳入 `false` 僅驗證狀態回傳值與日誌記錄。
-14. **多顯示器虛擬桌面座標系統之邊界計算**：
-   - 在多螢幕環境中，若副螢幕位於主螢幕左方或上方，其邊界座標可能為負數（如 `Left = -1920, Top = 0, Right = 0, Bottom = 1080`）。
-   - 解決方案：計算解析度時切勿將 `Right` / `Bottom` 直接當作寬高，必須使用差值計算：`Width := Right - Left`、`Height := Bottom - Top`。
-15. **AHK v2 靜態檢查特性下的 TDD 骨架先行原則（Stub Skeleton）**：
-   - AHK v2 於載入期即對調用函式進行語法與宣告檢查。若在 TDD 紅燈階段直接測試完全未宣告的函式，會引發載入期致命錯誤（`Call to nonexistent function`）而中斷整個測試執行器，無法產生完整測試報告。
-   - 解決方案：實踐 TDD 時，建議先宣告該函式的空白骨架（Stub，如回傳預設空值或 false），再執行紅燈測試驗證斷言失敗。
-16. **AHK v2 邏輯運算子短路求值與回傳型態（Short-Circuit Operator Return Value Coercion）**：
-   - 在 AutoHotkey v2 中，邏輯運算子 `||` 與 `&&` 具備短路求值特性，並直接回傳求值所命中的運算元本身（Truthy/Falsy Operand），而非強制轉為布林值 `true` / `false`。
-   - 例如：`WinExist(winTitle) || ProcessExist(procName)` 當有視窗或程序存在時，會回傳整數控制代碼 (HWND 如 `0x104b2`) 或程序 PID (如 `5420`)。
-   - 若呼叫端或單元測試進行嚴格比較（如 `result == true`），由於 AHK v2 中的 `true` 等同於整數 `1`，`5420 == 1` 將評估為 `false`，導致測試斷言失敗。
-   - 解決方案：宣告回傳值為布林值（`@returns {Boolean}`）的函式，必須使用三元運算子 `(condition) ? true : false` 或 `!(...)` 明確強制收斂為布林值。
-17. **CLI 命令路徑之環境變數無關性（PATH Independence）**：
-   - 在 Windows PowerShell、背景 Task 或 CI/CD 環境中，AutoHotkey 通常未預設加入系統全域 PATH，直接呼叫 `AutoHotkey64.exe` 會引發 `CommandNotFoundException` (Exit Code 1)。
-   - 解決方案：所有與 AutoHotkey 相關之 CLI 指令，務必一律使用完整路徑（如 `"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"`）執行。
-18. **全域縮寫與重構命名一致性（Global Identifier Sync & Test Runner Guard）**：
-   - 進行跨模組識別碼縮短或重構時（如函式與變數名），由於 AHK v2 採載入期靜態檢查，若底層模組（`lib/`）、主程式（`Mitake.ahk`）與測試集（`tests/`）更新不同步，會直接中斷測試執行。
-   - 解決方案：在進行任何縮寫重構時，務必建立專案級縮寫對照表（[ABBREVIATIONS.md](file:///d:/DJC/TEST/%E4%B8%89%E7%AB%B9/ABBREVIATIONS.md)），先同步重構核心函式庫與單元測試呼叫，再以 `run_tests.ahk` 作為全域回歸閘門驗證 0 錯誤。
-19. **文字工具對 UTF-16 LE 檔案之檢視與編輯限制（MIME Type / Text Editor Encoding Trap）**：
-   - 部分 AI 工具、終端指令或 CLI 工具僅支援 UTF-8 / ASCII 文字檔案檢視，遇到帶有 BOM 的 `UTF-16 LE` 檔案（如 `config/settings.ini`）時會回報 `unsupported mime type text/plain; charset=utf-16le` 或將其誤判為二進位檔案。
-   - 解決方案：若需檢視或編輯 `UTF-16 LE` 檔案內容，應透過 PowerShell 指定編碼（`Get-Content -Encoding Unicode ...`）或由腳本專用轉換函式處理，切勿直接以純文字工具強制覆寫以免遺失 BOM 或破壞 Windows INI API 相容性。
-20. **DPI 縮放與螢幕物理解析度偵測陷阱（DPI Scaling vs Physical Resolution Detection）**：
-   - 在 PowerShell 中透過 .NET `[System.Windows.Forms.Screen]::PrimaryScreen.Bounds` 檢測螢幕解析度時，若系統啟用了 DPI 縮放（例如 1920x1080 搭配 125% 縮放），.NET 在預設 DPI-unaware 環境下會回傳縮放後的邏輯尺寸（如 `1536x864`），導致誤判解析度不合。
-   - 解決方案：解析度檢測一律應依賴 AHK v2 原生之 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界，避免第三方環境的 DPI 虛擬化干擾。
-21. **視覺化游標懸停提示與實機座標校正機制（Visual ToolTip & Smooth Cursor for Calibration）**：
-   - 自繪型 GUI 介面中，純文字日誌僅記錄點擊座標數值，無法直觀判斷落點是否處於目標按鈕中央或偏離邊緣。
-   - 解決方案：撰寫實機座標校正工具時，應搭配平滑滑鼠移動（`MouseMove(x, y, 10)`）與 `ToolTip` 浮動標籤提示目標名稱與座標，並於點擊前停留數百毫秒，讓肉眼能精確確認游標落點，提高微調效率。
-22. **自動化單元測試與手動實機驗證工具之架構隔離（Decoupling Manual GUI Verification from Automated Test Runners）**：
-   - 自動化測試套件（`tests/run_tests.ahk`）必須保持純淨、快速且無阻斷式彈窗（無頭執行），以確保作為持續整合與版本回歸閘門之穩定性。
-   - 涉及真實桌面焦點切換、滑鼠軌跡與彈出確認對話框的手動驗證需求，應獨立建置專用腳本（如 `tests/test_coords_click.ahk`），並兼顧 CLI 參數呼叫與 GUI 面板互動，避免實機驗證邏輯干擾全域自動化測試。
+### 一、 檔案編碼與 CLI 執行環境 (Encoding & Environment)
+
+1. **檔案編碼診斷與 INI 設定檔限制**：
+   - **編碼診斷**：文字或設定檔出現亂碼時，優先檢查二進位標頭 (Magic Bytes / BOM)：`[System.IO.File]::ReadAllBytes(...)`，切勿僅依終端文字猜測（`FF FE` 為 UTF-16 LE；`EF BB BF` 為 UTF-8 with BOM）。
+   - **Windows INI API 限制**：Windows 原生 API (`GetPrivateProfileStringW` / AHK `IniRead`) 讀取中文僅支援 **UTF-16 LE (含 BOM)** 或 ANSI；若存為無 BOM 的 UTF-8 會被視為 ANSI (CP950) 解析導致亂碼。設定檔需由 `EnsureIniEnc()` 嚴格維護為 UTF-16 LE。
+   - **文字工具相容性**：部分 CLI/AI 工具僅支援 UTF-8，遇到 UTF-16 LE 會誤判二進位。檢視或編輯時應透過 PowerShell 指定編碼（`Get-Content -Encoding Unicode ...`）或腳本專用轉換函式，切勿直接以純文字工具覆寫，以免遺失 BOM。
+2. **PowerShell 與 CLI 執行環境注意事項**：
+   - **命令路徑完整性**：所有 AHK 指令一律使用完整路徑（如 `"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"`）執行，避免環境未將其加入全域 PATH 而拋出 `CommandNotFoundException`。
+   - **終端編碼與語法**：在 PowerShell 執行指令前確保 `[Console]::OutputEncoding = UTF-8`；Jujutsu 的修訂符號 `@` 需以引號包裹（如 `jj bookmark set main -r "@"`）；多行腳本使用 Here-String (`@' ... '@`)。
+   - **主控台輸出捕捉**：`AutoHotkey64.exe` 為 GUI 程序（`SUBSYSTEM_WINDOWS`），預設未附加輸出緩衝區；CLI 捕捉 stdout 務必附加 `/ErrorStdOut` 參數；動態執行腳本需透過管道傳入標準輸入並指定 `*`（因 AHK 無 `/e` 參數）；等待 GUI 程序結束並獲取 ExitCode 應使用 `Start-Process ... -NoNewWindow -PassThru -Wait`。
+
+### 二、 設定檔驅動與領域架構邊界 (Configuration-Driven & Architecture)
+
+3. **多解析度設定檔驅動與預設值邊界原則**：
+   - **多解析度集中管理**：各解析度點擊像素座標一律於 `config/settings.ini` 以 `ClickX_{Resolution}` 與 `ClickY_{Resolution}` 維護，全權由 `GetResCoords(section)` 依主顯示器解析度動態讀取。
+   - **選用配置 vs 領域必要配置之預設值邊界**：
+     - 基礎設施通用原語 `GetCfg(section, key, defVal := "")` 保留 `defVal` 是合理且必要的，用以支援「選用配置」（如熱鍵、逾時秒數）之「約定優於配置（Convention over Configuration）」。
+     - **反模式**：切勿將高度特異、不可隨意推導的「領域關鍵配置」（如按鈕像素座標）隨手在呼叫端寫死一份當作 `defVal` 或寫死條件分支（如 `(res.str == "1920x1080") ? 77 : 78`）。這會引發**雙重真實來源（Two Sources of Truth）**，並在設定檔遺失或失效時造成**靜默錯誤遮蔽（Silent Failure Masking）**。
+     - **解決方案**：關鍵必要配置應由設定檔動態驅動或回傳中性無效值（如 `x: 0, y: 0`）並記錄警告日誌，讓呼叫端安全退回圖像辨識（ImageSearch）比對，而非盲目點擊錯誤的像素。
+4. **重構中「差異參數化」之洩漏抽象反模式 (Parameterization of Differences)**：
+   - 當多段重複代碼存在細微差異時，重構初期的直覺通常是「找出相異處並抽成參數由呼叫端傳入」。
+   - 陷阱：若該差異本質上是系統配置（如座標、逾時時間），將其粗暴提為呼叫端參數，只會將寫死的魔術數字與分支邏輯由被呼叫端轉移至呼叫端，造成呼叫端承擔不必要的配置知識（Feature Envy / Leaky Abstraction）。
+   - 解決方案：重構重複代碼時，優先探究「差異資料的來源與權威真相（SSOT）在哪裡？」，讓共用核心直接向權威資料源（如 INI 設定檔）查詢，而非逼迫上層呼叫端當傳話筒。
+
+### 三、 AutoHotkey v2 語言特性與重構模式 (Language & Patterns)
+
+5. **跨模組重構之單一真實來源與命名同步 (SSOT & Identifier Sync)**：
+   - AHK v2 於載入期進行靜態檢查。當多個檔案彼此 `#Include`，若將通用函式（如 `GetRootDir`）下沉至共用底層模組（`lib/utils.ahk`）時，必須徹底清理高層模組的原有定義，否則編譯載入期會直接引發致命錯誤 `Duplicate function definition`。
+   - 跨模組重構識別碼時，務必建立專案級縮寫對照表（[ABBREVIATIONS.md](file:///d:/DJC/TEST/%E4%B8%89%E7%AB%B9/ABBREVIATIONS.md)），底層模組、主程式與測試集同步更新，並以 `run_tests.ahk` 作為全域回歸閘門驗證 0 錯誤。
+6. **一級函式與表驅動註冊模式 (Table-Driven Registration)**：
+   - 傳統寫法常為每個熱鍵或托盤菜單建立單行轉發函式（Proxy handlers），造成程式碼膨脹。
+   - 解決方案：善用 AHK v2 一級函式與匿名胖箭頭語法（`(*) => Handler()`），搭配配置物件陣列（`[{cfg: ..., def: ..., hnd: ...}]`）進行表驅動迭代註冊，大幅縮減頂層膠水代碼。
+7. **邏輯運算子短路求值與回傳型態強制收斂**：
+   - AHK v2 中 `||` 與 `&&` 具短路求值特性，直接回傳命中的運算元本身（如 HWND 或 PID）。若函式宣告回傳型態為布林值（`@returns {Boolean}`），必須使用三元運算子 `(condition) ? true : false` 或 `!(...)` 明確強制收斂為布林值，避免嚴格比對時斷言失敗。
+8. **生命週期常駐特性與 TDD 骨架先行原則 (Stub Skeleton)**：
+   - AHK v2 腳本一旦建立了 `Gui()` 物件即自動變為常駐進程，除非在結尾明確呼叫 `ExitApp()`，否則 CLI 等待會持續掛起。
+   - 實踐 TDD 紅燈階段時，由於 AHK v2 載入期會靜態驗證所有調用函式宣告，若直接調用未宣告的函式會引發 `Call to nonexistent function` 致命中斷，因此應先宣告空白骨架函式（Stub），方能順利產出完整測試報告。
+
+### 四、 視窗控制、顯示器與自繪 UI 自動化 (Window, Display & UI Automation)
+
+9. **階層式自繪選單之焦點保護與展開過渡延遲**：
+   - **焦點干擾保護**：自繪介面點擊展開下拉選單後，若後續搜尋子項目時再次調用 `WinActivate` 或 `WinMaximize`，系統發送的重繪訊息會**立刻強制關閉已展開的下拉選單**，導致子項目圖像辨識失敗。搜尋展開的選單項目時應停用啟用邏輯（`shouldActivate := false`）。
+   - **過渡展開延遲**：自繪下拉選單展開渲染需要時間（約 200~300ms）。在點擊主選單與點擊子選單之間必須插入適當緩衝延遲（如 `Sleep(300)`），避免因視覺元件尚未渲染完成而比對失敗誤觸座標備援。
+10. **Windows 最小化視窗解除與前台焦點鎖定突破 (ASFW)**：
+   - 對處於最小化（`WinGetMinMax == -1`）的視窗單純呼叫 `WinActivate` 無法可靠還原（常只在工作列閃爍）。
+   - 解決方案：必須先調用 `WinRestore(hwnd)`，並配合 `DllCall("user32\AllowSetForegroundWindow", "Int", -1)` 與 `DllCall("user32\SetForegroundWindow", "Ptr", hwnd)` 突破前台鎖定，再進行激活與最大化。
+11. **同進程多視窗之標題精確匹配與備援 (`FindMitakeWin`)**：
+   - 三竹股市主程式視窗與子視窗（「熱門排行」、「盤後排行」）屬於同一程序（`三竹股市.exe`）。若僅以 `ahk_exe 三竹股市.exe` 比對，會誤抓頂層子視窗。
+   - 解決方案：視窗定位應以標題精確區分（`"三竹股市"`、`"熱門排行"`、`"盤後排行"`），並統一封裝於 `FindMitakeWin(winTitle)` 中處理精確標題與進程名稱備援。
+12. **顯示器邊界計算與真實物理 DPI 解析度偵測**：
+   - **多螢幕邊界計算**：多螢幕環境中若副螢幕位於主螢幕左方或上方，其邊界座標可能為負數，計算寬高必須使用差值：`Width := Right - Left`、`Height := Bottom - Top`。
+   - **DPI 虛擬化避坑**：透過第三方環境（如 .NET）偵測螢幕解析度時，若啟用了系統 DPI 縮放會回傳虛擬化後的邏輯尺寸。解析度偵測一律應依賴 AHK v2 原生 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界。
+
+### 五、 測試架構與實機驗證工具隔離 (Test Architecture & Tooling)
+
+13. **資料驅動測試套件重構 (Data-Driven Test Suite Pattern)**：
+   - 多解析度、多資產與多座標的驗證若逐條複製貼上斷言，會導致測試代碼膨脹且難以擴展。
+   - 解決方案：改採資料驅動測試結構，以案例陣列（`cases := [{...}]`）配合迴圈動態檢驗，不僅提升測試可讀性與擴展性，也能輸出更具語意化的動態失敗除錯訊息。
+14. **無頭自動化測試與手動實機驗證工具之架構隔離**：
+   - **無頭自動化測試**：`tests/run_tests.ahk` 作為持續整合與版本回歸閘門，必須保持純淨、快速且無阻斷式彈窗；業務函式應提供 UI 抑制參數（`showMsgBox := false`）。
+   - **手動實機驗證工具**：涉及真實桌面焦點切換、滑鼠軌跡與確認彈窗的實機校正需求，應獨立建置專用腳本（`tests/test_coords_click.ahk`），搭配平滑游標移動（`MouseMove(x, y, 10)`）與 `ToolTip` 浮動標籤提示目標名稱與落點座標，兼顧除錯直觀性而不干擾全域測試。
+15. **背景 Session 與互動式桌面隔離限制 (Session Isolation & UIPI)**：
+   - 命令列終端（PowerShell / 背景 Task）受限於 Windows Session 隔離機制，無法直接枚舉或控制真實使用者互動桌面上的 GUI 視窗（`WinGetList` / `WinActive` 會回傳 0）。
+   - 單元測試焦點切換應以 `WinExist` 及函式回傳值驗證，避免依賴無桌面環境下的 `WinActive`；定位疑難問題時，以實體執行日誌 `logs/app.log` 留下的真實軌跡為準。
 
 
 ---
@@ -522,6 +466,30 @@ EnsureIniEnc(iniPath) {
 }
 
 /**
+ * 取得專案根目錄路徑
+ * @returns {String} 專案根目錄絕對路徑
+ */
+GetRootDir() {
+    static rootDir := ""
+    if (rootDir != "")
+        return rootDir
+    
+    dir := A_ScriptDir
+    Loop 5 {
+        if (FileExist(dir "\Mitake.ahk") || FileExist(dir "\config\settings.ini") || FileExist(dir "\assets")) {
+            rootDir := dir
+            return rootDir
+        }
+        SplitPath(dir, , &parent)
+        if (parent == dir || parent == "")
+            break
+        dir := parent
+    }
+    rootDir := A_ScriptDir
+    return rootDir
+}
+
+/**
  * 取得設定檔內容
  * @param {String} section 區段名稱
  * @param {String} key 鍵名
@@ -531,12 +499,7 @@ EnsureIniEnc(iniPath) {
 GetCfg(section, key, defVal := "") {
     static iniPath := ""
     if (iniPath == "") {
-        if FileExist(A_ScriptDir "\config\settings.ini")
-            iniPath := A_ScriptDir "\config\settings.ini"
-        else if FileExist(A_ScriptDir "\..\config\settings.ini")
-            iniPath := A_ScriptDir "\..\config\settings.ini"
-        else
-            iniPath := A_ScriptDir "\config\settings.ini"
+        iniPath := GetRootDir() "\config\settings.ini"
     }
     if !FileExist(iniPath) {
         return defVal
@@ -559,12 +522,7 @@ LogMsg(msg, level := "INFO") {
     static logDir := ""
     static logFile := ""
     if (logDir == "") {
-        if DirExist(A_ScriptDir "\logs") || FileExist(A_ScriptDir "\Mitake.ahk")
-            logDir := A_ScriptDir "\logs"
-        else if DirExist(A_ScriptDir "\..\logs") || FileExist(A_ScriptDir "\..\Mitake.ahk")
-            logDir := A_ScriptDir "\..\logs"
-        else
-            logDir := A_ScriptDir "\logs"
+        logDir := GetRootDir() "\logs"
         logFile := logDir "\app.log"
     }
     
@@ -701,6 +659,50 @@ GetAfterRankWinTitle() {
 }
 
 /**
+ * 尋找三竹股市相關視窗 HWND (支援標題精確匹配與進程名稱備援)
+ * @param {String} winTitle 視窗標題 (預設為空，代表主程式視窗)
+ * @returns {Integer} 視窗 HWND (若未找到則回傳 0)
+ */
+FindMitakeWin(winTitle := "") {
+    mainTitle := GetMainWinTitle()
+    tgtTitle := (winTitle != "") ? winTitle : mainTitle
+    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
+    
+    hwnd := WinExist(tgtTitle)
+    if (!hwnd) {
+        hwnd := (tgtTitle == mainTitle) ? WinExist("ahk_exe " procName) : WinExist(tgtTitle " ahk_exe " procName)
+    }
+    return hwnd ? hwnd : 0
+}
+
+/**
+ * 執行視窗客戶區座標點擊 (支援 control 與 physical 兩種點擊方式)
+ * @param {Integer} clickX X 座標
+ * @param {Integer} clickY Y 座標
+ * @param {String|Integer} tgtWin 目標視窗 WinTitle 或 HWND (預設主視窗)
+ * @param {Boolean} shouldActivate 是否先激活視窗 (實體滑鼠點擊時適用)
+ */
+ClickPoint(clickX, clickY, tgtWin := "", shouldActivate := false) {
+    target := (tgtWin != "") ? tgtWin : GetMainWinTitle()
+    clickMethod := GetCfg("App", "ClickMethod", "physical")
+    
+    if (clickMethod == "control") {
+        ControlClick(Format("X{1} Y{2}", clickX, clickY), target)
+    } else {
+        oldMouse := CoordMode("Mouse", "Client")
+        if (shouldActivate) {
+            hwnd := WinExist(target)
+            if (hwnd && !WinActive(hwnd)) {
+                WinActivate(hwnd)
+            }
+        }
+        MouseMove(clickX, clickY, 0)
+        Click(clickX, clickY)
+        CoordMode("Mouse", oldMouse)
+    }
+}
+
+/**
  * 切換至三竹股市主程式視窗 (WinTitle: "三竹股市") 並置於最前台與最大化
  * 僅主程式視窗具備 menu bar，點擊 menu bar 前應先調用本函式切換到主程式視窗
  * @param {Integer} timeout 等待視窗就緒之超時秒數 (預設 3 秒)
@@ -708,8 +710,7 @@ GetAfterRankWinTitle() {
  */
 SwitchToMainWin(timeout := 3) {
     mainWinTitle := GetMainWinTitle()
-    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-    hwnd := WinExist(mainWinTitle) ? WinExist(mainWinTitle) : WinExist("ahk_exe " procName)
+    hwnd := FindMitakeWin(mainWinTitle)
     
     if !hwnd {
         LogMsg(Format("切換主程式視窗失敗：未偵測到主程式視窗 [{1}]", mainWinTitle), "WARN")
@@ -731,10 +732,8 @@ SwitchToMainWin(timeout := 3) {
  * @returns {Boolean} 是否在執行中
  */
 IsMitakeRunning() {
-    mainTitle := GetMainWinTitle()
     procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-    
-    return (WinExist(mainTitle) || WinExist("ahk_exe " procName) || ProcessExist(procName)) ? true : false
+    return (FindMitakeWin() || ProcessExist(procName)) ? true : false
 }
 
 /**
@@ -806,11 +805,7 @@ LaunchMitake(customPath := "") {
 ActivateMitake(target := 0) {
     mainWinTitle := GetMainWinTitle()
     tgtWin := (target != 0) ? target : mainWinTitle
-    hwnd := WinExist(tgtWin)
-    if !hwnd {
-        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-        hwnd := WinExist("ahk_exe " procName)
-    }
+    hwnd := (target != 0 && WinExist(target)) ? WinExist(target) : FindMitakeWin(tgtWin)
     
     if !hwnd {
         return false
@@ -858,7 +853,6 @@ ToggleMenuBar() {
     
     ; 讀取設定檔中的觸發模式 (key, click, image)
     mode := GetCfg("MenuBar", "TriggerMode", "click")
-    clickMethod := GetCfg("App", "ClickMethod", "physical")
     
     if (mode == "image") {
         res := GetRes(0)
@@ -872,40 +866,19 @@ ToggleMenuBar() {
         imgRes := FindClickImg(imgPath, 0, 0, 1200, 400, 30, mainWinTitle)
         if imgRes.found {
             return true
-        } else {
-            ; 影像辨識退回預設座標點擊
-            res := GetRes(0)
-            coords := GetResCoords("MenuBar", 35, 45, res.str)
-            clickX := coords.x
-            clickY := coords.y
-            if (clickMethod == "control") {
-                ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
-            } else {
-                oldMouse := CoordMode("Mouse", "Client")
-                WinActivate(mainWinTitle)
-                MouseMove(clickX, clickY, 0)
-                Click(clickX, clickY)
-                CoordMode("Mouse", oldMouse)
-            }
-            LogMsg(Format("圖像搜尋未找到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, clickX, clickY), "WARN")
-            return true
         }
+        
+        ; 影像辨識退回預設座標點擊
+        coords := GetResCoords("MenuBar")
+        ClickPoint(coords.x, coords.y, mainWinTitle, true)
+        LogMsg(Format("圖像搜尋未找到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, coords.x, coords.y), "WARN")
+        return true
     } else if (mode == "click") {
         ; 模擬點擊選單按鈕 (依解析度由 settings.ini 讀取)
         res := GetRes(0)
-        coords := GetResCoords("MenuBar", 35, 45, res.str)
-        clickX := coords.x
-        clickY := coords.y
-        if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
-        } else {
-            oldMouse := CoordMode("Mouse", "Client")
-            WinActivate(mainWinTitle)
-            MouseMove(clickX, clickY, 0)
-            Click(clickX, clickY)
-            CoordMode("Mouse", oldMouse)
-        }
-        LogMsg(Format("已對三竹股市視窗進行選單點擊 (解析度: {1}, X:{2}, Y:{3})", res.str, clickX, clickY), "INFO")
+        coords := GetResCoords("MenuBar")
+        ClickPoint(coords.x, coords.y, mainWinTitle, true)
+        LogMsg(Format("已對三竹股市視窗進行選單點擊 (解析度: {1}, X:{2}, Y:{3})", res.str, coords.x, coords.y), "INFO")
     } else {
         ; 傳送選單按鍵 (預設傳送 Alt 鍵)
         triggerKey := GetCfg("MenuBar", "TriggerKey", "{Alt}")
@@ -959,11 +932,7 @@ FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, varia
     }
     
     winTitle := (tgtWin != "") ? tgtWin : GetMainWinTitle()
-    hwnd := WinExist(winTitle)
-    if !hwnd {
-        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-        hwnd := WinExist("ahk_exe " procName)
-    }
+    hwnd := FindMitakeWin(winTitle)
     if !hwnd {
         return {found: false, x: 0, y: 0}
     }
@@ -973,7 +942,6 @@ FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, varia
     }
     
     oldPixel := CoordMode("Pixel", "Client")
-    oldMouse := CoordMode("Mouse", "Client")
     
     try {
         searchSpec := Format("*{} {}", variation, imgPath)
@@ -983,23 +951,12 @@ FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, varia
             targetX := foundX + (imgW // 2)
             targetY := foundY + (imgH // 2)
             
+            ClickPoint(targetX, targetY, hwnd, shouldActivate)
             clickMethod := GetCfg("App", "ClickMethod", "physical")
-            
-            if (clickMethod == "control") {
-                ControlClick(Format("X{} Y{}", targetX, targetY), hwnd)
-            } else {
-                ; 實體滑鼠移動與點擊 (自訂繪製視窗必備)
-                if (shouldActivate && !WinActive(hwnd)) {
-                    WinActivate(hwnd)
-                }
-                MouseMove(targetX, targetY, 0)
-                Click(targetX, targetY)
-            }
             
             LogMsg(Format("圖像辨識成功 ({1})，圖案尺寸({2}x{3})，已用[{4}]點擊中心座標 ({5}, {6})", imgPath, imgW, imgH, clickMethod, targetX, targetY), "INFO")
             
             CoordMode("Pixel", oldPixel)
-            CoordMode("Mouse", oldMouse)
             return {found: true, x: targetX, y: targetY}
         }
     } catch as err {
@@ -1007,33 +964,8 @@ FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, varia
     }
     
     CoordMode("Pixel", oldPixel)
-    CoordMode("Mouse", oldMouse)
     LogMsg(Format("圖像辨識未找到匹配項目: {1}", imgPath), "WARN")
     return {found: false, x: 0, y: 0}
-}
-
-/**
- * 取得專案根目錄路徑
- * @returns {String} 專案根目錄絕對路徑
- */
-GetRootDir() {
-    static rootDir := ""
-    if (rootDir != "")
-        return rootDir
-    
-    dir := A_ScriptDir
-    Loop 5 {
-        if FileExist(dir "\assets") && (FileExist(dir "\Mitake.ahk") || FileExist(dir "\config\settings.ini")) {
-            rootDir := dir
-            return rootDir
-        }
-        SplitPath(dir, , &parent)
-        if (parent == dir || parent == "")
-            break
-        dir := parent
-    }
-    rootDir := A_ScriptDir
-    return rootDir
 }
 
 /**
@@ -1149,24 +1081,66 @@ ClickSecQuoteMenu() {
         LogMsg("已成功透過圖像辨識點擊「證券行情」。", "INFO")
         return true
     } else {
-        ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊
-        defX := 337
-        defY := (res.str == "1920x1080") ? 15 : 14
-        coords := GetResCoords("SecuritiesQuote", defX, defY, res.str)
-        clickX := coords.x
-        clickY := coords.y
-        clickMethod := GetCfg("App", "ClickMethod", "physical")
-        if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
-        } else {
-            oldMouse := CoordMode("Mouse", "Client")
-            MouseMove(clickX, clickY, 0)
-            Click(clickX, clickY)
-            CoordMode("Mouse", oldMouse)
-        }
-        LogMsg(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
+        ; 影像搜尋若未比對成功，降級採用 settings.ini 當前解析度的相對座標點擊
+        coords := GetResCoords("SecuritiesQuote")
+        ClickPoint(coords.x, coords.y, mainWinTitle, false)
+        LogMsg(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, coords.x, coords.y), "WARN")
         return true
     }
+}
+
+/**
+ * 通用點擊「證券行情」下拉選單之排行項目並可選等待新視窗
+ * 點擊座標依據 settings.ini 中對應解析度設定自動讀取
+ * @param {String} itemName 項目名稱 (例: "熱門排行"、"盤後排行")
+ * @param {String} section INI 區段名稱 (例: "PopularRanking"、"AfterMarketRanking")
+ * @param {String} tgtWinTitle 目標新視窗標題
+ * @param {Boolean} waitNewWindow 是否等待新視窗出現
+ * @param {Integer} timeout 等待超時秒數
+ * @returns {Boolean} 點擊是否成功
+ */
+ClickRankMenu(itemName, section, tgtWinTitle, waitNewWindow := true, timeout := 5) {
+    ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
+    if !ClickSecQuoteMenu() {
+        LogMsg(Format("點擊{1}失敗：開啟證券行情選單未成功", itemName), "WARN")
+        return false
+    }
+    
+    Sleep(300) ; 等待選單展開
+    
+    ; 2. 尋找與點擊目標項目 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
+    mainWinTitle := GetMainWinTitle()
+    res := GetRes(0)
+    imgPath := GetAssetImgPath(itemName ".png")
+    searchW := (res.width >= 2560) ? 2000 : 1200
+    searchH := (res.height >= 1440) ? 750 : 500
+    
+    imgRes := FindClickImg(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
+    clicked := false
+    if imgRes.found {
+        LogMsg(Format("已成功透過圖像辨識點擊「{1}」。", itemName), "INFO")
+        clicked := true
+    } else {
+        coords := GetResCoords(section)
+        ClickPoint(coords.x, coords.y, mainWinTitle, false)
+        LogMsg(Format("圖像辨識點擊「{1}」未比對到 ({2})，降級採用解析度 [{3}] 座標點擊 (X:{4}, Y:{5})", itemName, imgPath, res.str, coords.x, coords.y), "WARN")
+        clicked := true
+    }
+    
+    ; 3. 點擊後等待新視窗出現
+    if (clicked && waitNewWindow) {
+        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
+        hwnd := 0
+        if WinWait(tgtWinTitle, , timeout) || WinWait(tgtWinTitle " ahk_exe " procName, , timeout) {
+            hwnd := FindMitakeWin(tgtWinTitle)
+            ActivateMitake(hwnd)
+            LogMsg(Format("已偵測到「{1}」新視窗 ({2}) 並最大化顯示", itemName, tgtWinTitle), "INFO")
+        } else {
+            LogMsg(Format("等待「{1}」新視窗 ({2}) 出現超時 ({3} 秒)", itemName, tgtWinTitle, timeout), "WARN")
+        }
+    }
+    
+    return clicked
 }
 
 /**
@@ -1178,61 +1152,7 @@ ClickSecQuoteMenu() {
  * @returns {Boolean} 點擊是否成功
  */
 ClickPopRankMenu(waitNewWindow := true, timeout := 5) {
-    ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
-    if !ClickSecQuoteMenu() {
-        LogMsg("點擊熱門排行失敗：開啟證券行情選單未成功", "WARN")
-        return false
-    }
-    
-    Sleep(300) ; 等待選單展開
-    
-    ; 2. 尋找與點擊「熱門排行」 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
-    mainWinTitle := GetMainWinTitle()
-    res := GetRes(0)
-    imgPath := GetAssetImgPath("熱門排行.png")
-    searchW := (res.width >= 2560) ? 2000 : 1200
-    searchH := (res.height >= 1440) ? 750 : 500
-    
-    imgRes := FindClickImg(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
-    clicked := false
-    if imgRes.found {
-        LogMsg("已成功透過圖像辨識點擊「熱門排行」。", "INFO")
-        clicked := true
-    } else {
-        ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
-        defX := (res.str == "1920x1080") ? 77 : 78
-        defY := 80
-        coords := GetResCoords("PopularRanking", defX, defY, res.str)
-        clickX := coords.x
-        clickY := coords.y
-        clickMethod := GetCfg("App", "ClickMethod", "physical")
-        if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
-        } else {
-            oldMouse := CoordMode("Mouse", "Client")
-            MouseMove(clickX, clickY, 0)
-            Click(clickX, clickY)
-            CoordMode("Mouse", oldMouse)
-        }
-        LogMsg(Format("圖像辨識點擊「熱門排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
-        clicked := true
-    }
-    
-    ; 3. 點擊後出現新視窗且 WinTitle 為 "熱門排行"
-    if (clicked && waitNewWindow) {
-        popWinTitle := GetPopRankWinTitle()
-        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-        hwnd := 0
-        if WinWait(popWinTitle, , timeout) || WinWait(popWinTitle " ahk_exe " procName, , timeout) {
-            hwnd := WinExist(popWinTitle) ? WinExist(popWinTitle) : WinExist(popWinTitle " ahk_exe " procName)
-            ActivateMitake(hwnd)
-            LogMsg(Format("已偵測到「熱門排行」新視窗 ({1}) 並最大化顯示", popWinTitle), "INFO")
-        } else {
-            LogMsg(Format("等待「熱門排行」新視窗 ({1}) 出現超時 ({2} 秒)", popWinTitle, timeout), "WARN")
-        }
-    }
-    
-    return clicked
+    return ClickRankMenu("熱門排行", "PopularRanking", GetPopRankWinTitle(), waitNewWindow, timeout)
 }
 
 /**
@@ -1244,61 +1164,27 @@ ClickPopRankMenu(waitNewWindow := true, timeout := 5) {
  * @returns {Boolean} 點擊是否成功
  */
 ClickAfterRankMenu(waitNewWindow := true, timeout := 5) {
-    ; 1. 點擊 menu bar 前應先切換到主程式視窗並點擊「證券行情」
-    if !ClickSecQuoteMenu() {
-        LogMsg("點擊盤後排行失敗：開啟證券行情選單未成功", "WARN")
-        return false
+    return ClickRankMenu("盤後排行", "AfterMarketRanking", GetAfterRankWinTitle(), waitNewWindow, timeout)
+}
+
+/**
+ * 切換至子視窗或點擊選單開啟新視窗
+ * @param {String} winTitle 子視窗 WinTitle
+ * @param {String} itemName 子視窗項目名稱
+ * @param {Func} openFunc 未開啟時調用的開啟函式
+ * @param {Integer} timeout 等待超時秒數
+ * @returns {Boolean} 切換或開啟是否成功
+ */
+SwitchToSubWin(winTitle, itemName, openFunc, timeout := 5) {
+    hwnd := FindMitakeWin(winTitle)
+    if hwnd {
+        ActivateMitake(hwnd)
+        LogMsg(Format("已切換至現有的「{1}」視窗: {2}", itemName, winTitle), "INFO")
+        return true
     }
     
-    Sleep(300) ; 等待選單展開
-    
-    ; 2. 尋找與點擊「盤後排行」 (shouldActivate 設為 false，避免關閉已展開的下拉選單)
-    mainWinTitle := GetMainWinTitle()
-    res := GetRes(0)
-    imgPath := GetAssetImgPath("盤後排行.png")
-    searchW := (res.width >= 2560) ? 2000 : 1200
-    searchH := (res.height >= 1440) ? 750 : 500
-    
-    imgRes := FindClickImg(imgPath, 0, 0, searchW, searchH, 30, mainWinTitle, false)
-    clicked := false
-    if imgRes.found {
-        LogMsg("已成功透過圖像辨識點擊「盤後排行」。", "INFO")
-        clicked := true
-    } else {
-        ; 影像搜尋若未比對成功，降級採用當前解析度的相對座標點擊 (不重複調用 WinActivate，以免關閉選單)
-        defX := 78
-        defY := 110
-        coords := GetResCoords("AfterMarketRanking", defX, defY, res.str)
-        clickX := coords.x
-        clickY := coords.y
-        clickMethod := GetCfg("App", "ClickMethod", "physical")
-        if (clickMethod == "control") {
-            ControlClick(Format("X{1} Y{2}", clickX, clickY), mainWinTitle)
-        } else {
-            oldMouse := CoordMode("Mouse", "Client")
-            MouseMove(clickX, clickY, 0)
-            Click(clickX, clickY)
-            CoordMode("Mouse", oldMouse)
-        }
-        LogMsg(Format("圖像辨識點擊「盤後排行」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, clickX, clickY), "WARN")
-        clicked := true
-    }
-    
-    ; 3. 點擊後出現新視窗且 WinTitle 為 "盤後排行"
-    if (clicked && waitNewWindow) {
-        afterWinTitle := GetAfterRankWinTitle()
-        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-        hwnd := 0
-        if WinWait(afterWinTitle, , timeout) || WinWait(afterWinTitle " ahk_exe " procName, , timeout) {
-            hwnd := WinExist(afterWinTitle) ? WinExist(afterWinTitle) : WinExist(afterWinTitle " ahk_exe " procName)
-            ActivateMitake(hwnd)
-            LogMsg(Format("已偵測到「盤後排行」新視窗 ({1}) 並最大化顯示", afterWinTitle), "INFO")
-        } else {
-            LogMsg(Format("等待「盤後排行」新視窗 ({1}) 出現超時 ({2} 秒)", afterWinTitle, timeout), "WARN")
-        }
-    }
-    
-    return clicked
+    LogMsg(Format("「{1}」視窗尚未開啟，切換至主程式點擊選單開啟...", itemName), "INFO")
+    return openFunc(true, timeout)
 }
 
 /**
@@ -1308,17 +1194,7 @@ ClickAfterRankMenu(waitNewWindow := true, timeout := 5) {
  * @returns {Boolean} 切換或開啟是否成功
  */
 SwitchToPopRankWin(timeout := 5) {
-    popWinTitle := GetPopRankWinTitle()
-    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-    hwnd := WinExist(popWinTitle) ? WinExist(popWinTitle) : WinExist(popWinTitle " ahk_exe " procName)
-    if hwnd {
-        ActivateMitake(hwnd)
-        LogMsg(Format("已切換至現有的「熱門排行」視窗: {1}", popWinTitle), "INFO")
-        return true
-    }
-    
-    LogMsg("「熱門排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
-    return ClickPopRankMenu(true, timeout)
+    return SwitchToSubWin(GetPopRankWinTitle(), "熱門排行", ClickPopRankMenu, timeout)
 }
 
 /**
@@ -1328,17 +1204,7 @@ SwitchToPopRankWin(timeout := 5) {
  * @returns {Boolean} 切換或開啟是否成功
  */
 SwitchToAfterRankWin(timeout := 5) {
-    afterWinTitle := GetAfterRankWinTitle()
-    procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-    hwnd := WinExist(afterWinTitle) ? WinExist(afterWinTitle) : WinExist(afterWinTitle " ahk_exe " procName)
-    if hwnd {
-        ActivateMitake(hwnd)
-        LogMsg(Format("已切換至現有的「盤後排行」視窗: {1}", afterWinTitle), "INFO")
-        return true
-    }
-    
-    LogMsg("「盤後排行」視窗尚未開啟，切換至主程式點擊選單開啟...", "INFO")
-    return ClickAfterRankMenu(true, timeout)
+    return SwitchToSubWin(GetAfterRankWinTitle(), "盤後排行", ClickAfterRankMenu, timeout)
 }
 
 ```
