@@ -126,6 +126,7 @@ Source Tree:
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
+; 視窗標題採部分比對，且僅操作目前可見的視窗
 SetTitleMatchMode(2)
 DetectHiddenWindows(false)
 
@@ -141,7 +142,7 @@ A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
-; 註冊 ShellHook 監聽視窗切換與焦點事件，永遠自動最大化三竹股市視窗
+; 註冊 ShellHook 監聽視窗切換與焦點事件，自動最大化標題非空白的三竹股市視窗
 DllCall("RegisterShellHookWindow", "Ptr", A_ScriptHwnd)
 OnMessage(DllCall("RegisterWindowMessage", "Str", "SHELLHOOK"), ShellMsg)
 
@@ -150,8 +151,9 @@ ShellMsg(wParam, lParam, *) {
     if (wParam == 4 || wParam == 32772) {
         try {
             proc := WinGetProcessName(lParam)
+            winTitle := WinGetTitle(lParam)
             procCfg := GetCfg("App", "ProcessName", "三竹股市.exe")
-            if (proc == procCfg || proc == "三竹股市.exe" || InStr(proc, "三竹")) {
+            if ShouldMaximizeMitakeWin(proc, winTitle, procCfg) {
                 WinMaximize(lParam)
             }
         }
@@ -656,6 +658,20 @@ GetPopRankWinTitle() {
  */
 GetAfterRankWinTitle() {
     return GetCfg("App", "AfterMarketRankingWinTitle", "盤後排行")
+}
+
+/**
+ * 判斷三竹股市視窗是否應自動最大化
+ * @param {String} procName 視窗所屬程序名稱
+ * @param {String} winTitle 視窗標題
+ * @param {String} cfgProcName 設定檔中的三竹股市程序名稱
+ * @returns {Boolean} 程序符合且視窗標題非空白時回傳 true
+ */
+ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
+    isMitakeProc := procName == cfgProcName
+        || procName == "三竹股市.exe"
+        || InStr(procName, "三竹")
+    return (Trim(winTitle) != "" && isMitakeProc) ? true : false
 }
 
 /**

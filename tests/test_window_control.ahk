@@ -89,6 +89,20 @@ Test_GetWindowTitles() {
     Assert.AssertEquals("盤後排行", afterTitle, "GetAfterRankWinTitle should return '盤後排行'")
 }
 
+Test_ShouldMaximizeMitakeWin() {
+    cases := [
+        {proc: "三竹股市.exe", title: "三竹股市", expected: true, desc: "matching process and non-blank title"},
+        {proc: "三竹股市.exe", title: "", expected: false, desc: "empty title"},
+        {proc: "三竹股市.exe", title: "   `t", expected: false, desc: "whitespace-only title"},
+        {proc: "notepad.exe", title: "三竹股市", expected: false, desc: "unrelated process"}
+    ]
+
+    for c in cases {
+        actual := ShouldMaximizeMitakeWin(c.proc, c.title, "三竹股市.exe")
+        Assert.AssertEquals(c.expected, actual, c.desc)
+    }
+}
+
 Test_SwitchToMainWin_WhenNotRunning() {
     result := SwitchToMainWin(1)
     Assert.AssertTrue(result == true || result == false, "SwitchToMainWin should return boolean")
@@ -208,6 +222,7 @@ RunWindowControlTests() {
     Test_AssetImageSizes_2560x1440()
     Test_GetImgSize_Fallback()
     Test_GetWindowTitles()
+    Test_ShouldMaximizeMitakeWin()
     Test_SwitchToMainWin_WhenNotRunning()
     Test_SwitchToPopRankWin_ReturnType()
     Test_SwitchToAfterRankWin_ReturnType()

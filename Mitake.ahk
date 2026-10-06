@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
+; 視窗標題採部分比對，且僅操作目前可見的視窗
 SetTitleMatchMode(2)
 DetectHiddenWindows(false)
 
@@ -16,7 +17,7 @@ A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
-; 註冊 ShellHook 監聽視窗切換與焦點事件，永遠自動最大化三竹股市視窗
+; 註冊 ShellHook 監聽視窗切換與焦點事件，自動最大化標題非空白的三竹股市視窗
 DllCall("RegisterShellHookWindow", "Ptr", A_ScriptHwnd)
 OnMessage(DllCall("RegisterWindowMessage", "Str", "SHELLHOOK"), ShellMsg)
 
@@ -25,8 +26,9 @@ ShellMsg(wParam, lParam, *) {
     if (wParam == 4 || wParam == 32772) {
         try {
             proc := WinGetProcessName(lParam)
+            winTitle := WinGetTitle(lParam)
             procCfg := GetCfg("App", "ProcessName", "三竹股市.exe")
-            if (proc == procCfg || proc == "三竹股市.exe" || InStr(proc, "三竹")) {
+            if ShouldMaximizeMitakeWin(proc, winTitle, procCfg) {
                 WinMaximize(lParam)
             }
         }

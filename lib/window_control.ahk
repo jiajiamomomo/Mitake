@@ -25,6 +25,20 @@ GetAfterRankWinTitle() {
 }
 
 /**
+ * 判斷三竹股市視窗是否應自動最大化
+ * @param {String} procName 視窗所屬程序名稱
+ * @param {String} winTitle 視窗標題
+ * @param {String} cfgProcName 設定檔中的三竹股市程序名稱
+ * @returns {Boolean} 程序符合且視窗標題非空白時回傳 true
+ */
+ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
+    isMitakeProc := procName == cfgProcName
+        || procName == "三竹股市.exe"
+        || InStr(procName, "三竹")
+    return (Trim(winTitle) != "" && isMitakeProc) ? true : false
+}
+
+/**
  * 尋找三竹股市相關視窗 HWND (支援標題精確匹配與進程名稱備援)
  * @param {String} winTitle 視窗標題 (預設為空，代表主程式視窗)
  * @returns {Integer} 視窗 HWND (若未找到則回傳 0)
