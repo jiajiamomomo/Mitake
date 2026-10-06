@@ -132,6 +132,21 @@
 17. **CLI 命令路徑之環境變數無關性（PATH Independence）**：
    - 在 Windows PowerShell、背景 Task 或 CI/CD 環境中，AutoHotkey 通常未預設加入系統全域 PATH，直接呼叫 `AutoHotkey64.exe` 會引發 `CommandNotFoundException` (Exit Code 1)。
    - 解決方案：所有與 AutoHotkey 相關之 CLI 指令，務必一律使用完整路徑（如 `"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"`）執行。
+18. **全域縮寫與重構命名一致性（Global Identifier Sync & Test Runner Guard）**：
+   - 進行跨模組識別碼縮短或重構時（如函式與變數名），由於 AHK v2 採載入期靜態檢查，若底層模組（`lib/`）、主程式（`Mitake.ahk`）與測試集（`tests/`）更新不同步，會直接中斷測試執行。
+   - 解決方案：在進行任何縮寫重構時，務必建立專案級縮寫對照表（[ABBREVIATIONS.md](file:///d:/DJC/TEST/%E4%B8%89%E7%AB%B9/ABBREVIATIONS.md)），先同步重構核心函式庫與單元測試呼叫，再以 `run_tests.ahk` 作為全域回歸閘門驗證 0 錯誤。
+19. **文字工具對 UTF-16 LE 檔案之檢視與編輯限制（MIME Type / Text Editor Encoding Trap）**：
+   - 部分 AI 工具、終端指令或 CLI 工具僅支援 UTF-8 / ASCII 文字檔案檢視，遇到帶有 BOM 的 `UTF-16 LE` 檔案（如 `config/settings.ini`）時會回報 `unsupported mime type text/plain; charset=utf-16le` 或將其誤判為二進位檔案。
+   - 解決方案：若需檢視或編輯 `UTF-16 LE` 檔案內容，應透過 PowerShell 指定編碼（`Get-Content -Encoding Unicode ...`）或由腳本專用轉換函式處理，切勿直接以純文字工具強制覆寫以免遺失 BOM 或破壞 Windows INI API 相容性。
+20. **DPI 縮放與螢幕物理解析度偵測陷阱（DPI Scaling vs Physical Resolution Detection）**：
+   - 在 PowerShell 中透過 .NET `[System.Windows.Forms.Screen]::PrimaryScreen.Bounds` 檢測螢幕解析度時，若系統啟用了 DPI 縮放（例如 1920x1080 搭配 125% 縮放），.NET 在預設 DPI-unaware 環境下會回傳縮放後的邏輯尺寸（如 `1536x864`），導致誤判解析度不合。
+   - 解決方案：解析度檢測一律應依賴 AHK v2 原生之 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界，避免第三方環境的 DPI 虛擬化干擾。
+21. **視覺化游標懸停提示與實機座標校正機制（Visual ToolTip & Smooth Cursor for Calibration）**：
+   - 自繪型 GUI 介面中，純文字日誌僅記錄點擊座標數值，無法直觀判斷落點是否處於目標按鈕中央或偏離邊緣。
+   - 解決方案：撰寫實機座標校正工具時，應搭配平滑滑鼠移動（`MouseMove(x, y, 10)`）與 `ToolTip` 浮動標籤提示目標名稱與座標，並於點擊前停留數百毫秒，讓肉眼能精確確認游標落點，提高微調效率。
+22. **自動化單元測試與手動實機驗證工具之架構隔離（Decoupling Manual GUI Verification from Automated Test Runners）**：
+   - 自動化測試套件（`tests/run_tests.ahk`）必須保持純淨、快速且無阻斷式彈窗（無頭執行），以確保作為持續整合與版本回歸閘門之穩定性。
+   - 涉及真實桌面焦點切換、滑鼠軌跡與彈出確認對話框的手動驗證需求，應獨立建置專用腳本（如 `tests/test_coords_click.ahk`），並兼顧 CLI 參數呼叫與 GUI 面板互動，避免實機驗證邏輯干擾全域自動化測試。
 
 
 ---
