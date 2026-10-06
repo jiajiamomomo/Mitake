@@ -212,6 +212,11 @@ Test_GetResCoords_DualResolutions() {
     ; 測試未指定目標解析度時，應自動採用主顯示器解析度並回傳有效座標
     autoRes := GetResCoords("SecuritiesQuote", 0, 0)
     Assert.AssertTrue(autoRes.x > 0 && autoRes.y > 0, "Auto resolution should return positive coords")
+    res := GetRes(0)
+    if (res.str == "1920x1080") {
+        Assert.AssertEquals(337, autoRes.x, "Auto resolution under 1920x1080 should return ClickX 337")
+        Assert.AssertEquals(15, autoRes.y, "Auto resolution under 1920x1080 should return ClickY 15")
+    }
 }
 
 RunWindowControlTests() {

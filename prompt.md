@@ -460,14 +460,14 @@ ClickY_1920x1080 = 15
 ClickX_2560x1440 = 337
 ClickY_2560x1440 = 14
 ClickX = 337
-ClickY = 14
+ClickY = 15
 
 [PopularRanking]
 ClickX_1920x1080 = 77
 ClickY_1920x1080 = 80
 ClickX_2560x1440 = 78
 ClickY_2560x1440 = 80
-ClickX = 78
+ClickX = 77
 ClickY = 80
 
 [AfterMarketRanking]
@@ -477,6 +477,7 @@ ClickX_2560x1440 = 78
 ClickY_2560x1440 = 110
 ClickX = 78
 ClickY = 110
+
 ```
 `lib\utils.ahk`:
 
