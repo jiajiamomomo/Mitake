@@ -3,6 +3,10 @@
 logs/
 tests/logs/
 
+# Exported market data (keep folder placeholders)
+熱門排行/*/
+盤後排行/*/
+
 # Operating System Files
 Thumbs.db
 Desktop.ini

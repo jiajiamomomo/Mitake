@@ -48,15 +48,19 @@
 │   └── settings.ini      # 專案參數與設定檔
 ├── lib/                  # 模組與函式庫 (功能模組)
 │   ├── window_control.ahk # 三竹股市視窗控制模組
+│   ├── export.ahk        # 熱門排行/盤後排行匯出模組 (CSV 輪詢與複製)
 │   └── utils.ahk         # 通用工具函式 (如 Log、提示訊息等)
 ├── tests/                # 測試目錄 (TDD 測試案例與 Test Runner)
 │   ├── run_tests.ahk     # 自動化測試執行器入口
 │   ├── test_utils.ahk    # utils.ahk 單元測試集
 │   ├── test_window_control.ahk # window_control.ahk 單元測試集
+│   ├── test_export.ahk   # export.ahk 無頭單元測試集 (暫存目錄)
+│   ├── test_pop_rank_export.ahk # 熱門排行匯出手動實機驗證腳本
 │   └── helpers/          # 測試輔助模組 (如 Assert 斷言庫)
 │       └── assert.ahk
+├── bypass.bat            # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
 ├── logs/                 # 執行日誌輸出
-├── 熱門排行/             # "熱門排行"所有項目匯出檔
+├── 熱門排行/             # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
 └── 盤後排行/             # "盤後排行"所有項目匯出檔
 
 ```
@@ -66,7 +70,7 @@
 ## 核心功能規劃 (Roadmap & Feature List)
 
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
-- [ ] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。
+- [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。
 - [ ] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。
 
 ---
@@ -117,6 +121,7 @@
 8. **生命週期常駐特性與 TDD 骨架先行原則 (Stub Skeleton)**：
    - AHK v2 腳本一旦建立了 `Gui()` 物件即自動變為常駐進程，除非在結尾明確呼叫 `ExitApp()`，否則 CLI 等待會持續掛起。
    - 實踐 TDD 紅燈階段時，由於 AHK v2 載入期會靜態驗證所有調用函式宣告，若直接調用未宣告的函式會引發 `Call to nonexistent function` 致命中斷，因此應先宣告空白骨架函式（Stub），方能順利產出完整測試報告。
+   - **Send 自我觸發熱鍵陷阱**：未使用鍵盤 hook 的熱鍵（如 `Esc::`）會被同一腳本自身的 `Send("{Esc}")` 觸發。中止熱鍵若與流程中送出的按鍵相同，必須加上 `$` 前綴（`$Esc::`）強制使用 hook，否則流程會在送出按鍵的瞬間誤判為使用者中止。
 
 ### 四、 視窗控制、顯示器與自繪 UI 自動化 (Window, Display & UI Automation)
 

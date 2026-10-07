@@ -7,6 +7,7 @@ DetectHiddenWindows(false)
 
 #Include lib\utils.ahk
 #Include lib\window_control.ahk
+#Include lib\export.ahk
 
 ; 初始化腳本與系統托盤 (Tray)
 A_IconTip := "三竹股市 AutoHotkey 控制專案"
@@ -14,6 +15,7 @@ A_TrayMenu.Add() ; 分隔線
 A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHnd)
 A_TrayMenu.Add("切換至 熱門排行", MenuPopRankHnd)
 A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
+A_TrayMenu.Add("匯出熱門排行", (*) => ExportPopRankAll())
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
@@ -54,7 +56,8 @@ hkDefs := [
     {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: (*) => ToggleMenuBar()},
     {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
     {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
-    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()}
+    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()},
+    {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()}
 ]
 
 for item in hkDefs {

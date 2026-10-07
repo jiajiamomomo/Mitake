@@ -68,6 +68,25 @@
 | `SwitchToPopularRankingWindow` | `SwitchToPopRankWin` | 切換至「熱門排行」視窗 |
 | `SwitchToAfterMarketRankingWindow` | `SwitchToAfterRankWin` | 切換至「盤後排行」視窗 |
 
+### `lib/export.ahk`
+| 原函式名 | 新縮短函式名 | 說明 |
+| :--- | :--- | :--- |
+| `ExportTimingConstants` | `ExportTiming` | 匯出流程時序常數 (寫死於程式) |
+| `PopularRankingAssets` | `PopRankAssets` | 熱門排行匯出所需圖檔清單 |
+| `GetPopularRankingTotalItems` | `GetPopRankTotalItems` | 讀取 `[PopularRanking] TotalItems` (預設 25) |
+| `GetExportOutputDirectory` | `GetExportOutDir` | 讀取三竹 CSV 輸出目錄 `OutDir` |
+| `GetPopularRankingDestinationRoot` | `GetPopRankDstRoot` | 取得 `<專案>\熱門排行` 目的根目錄 |
+| `FindNewestCsvSince` | `FindNewCsv` | 尋找不早於指定時間的最新 CSV |
+| `IsFileReady` | `IsFileReady` | 檢查檔案是否已寫入完成 |
+| `WaitForNewCsv` | `WaitNewCsv` | 輪詢等待新 CSV 出現 |
+| `CopyToDateDirectory` | `CopyToDateDir` | 複製至 `YYYYMMDD` 子資料夾 (同名覆蓋) |
+| `HasResolutionAssets` | `HasResAssets` | 檢查指定解析度圖檔是否齊全 |
+| `ResetPopularRankingState` | `ResetPopRankState` | 重設視窗狀態 (Esc 收合選單與移開滑鼠) |
+| `ClickExportButton` | `ClickExportBtn` | 點擊資料匯出 (圖像優先，退回 `[ExportButton]` 座標) |
+| `TryExportPopularRankingItem` | `TryExportPopRankItem` | 單次匯出單一項目 (不含重試) |
+| `ExportPopularRankingItem` | `ExportPopRankItem` | 匯出單一項目 (含重試) |
+| `ExportPopularRankingAll` | `ExportPopRankAll` | 批次匯出全部項目 |
+
 ### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |
 | :--- | :--- | :--- |
