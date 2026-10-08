@@ -86,6 +86,16 @@
 | `TryExportPopularRankingItem` | `TryExportPopRankItem` | 單次匯出單一項目 (不含重試) |
 | `ExportPopularRankingItem` | `ExportPopRankItem` | 匯出單一項目 (含重試) |
 | `ExportPopularRankingAll` | `ExportPopRankAll` | 批次匯出全部項目 |
+| `AfterMarketRankingAssets` | `AfterRankAssets` | 盤後排行匯出所需圖檔清單 |
+| `GetAfterMarketRankingTotalItemsL` | `GetAfterRankTotalItemsL` | 讀取 `[AfterMarketRanking] TotalItemsL` (預設 5) |
+| `GetAfterMarketRankingTotalItemsR` | `GetAfterRankTotalItemsR` | 讀取 `[AfterMarketRanking] TotalItemsR{itemNoL}` (依規格預設) |
+| `GetAfterMarketRankingDestinationRoot` | `GetAfterRankDstRoot` | 取得 `<專案>\盤後排行` 目的根目錄 |
+| `ResetAfterMarketRankingState` | `ResetAfterRankState` | 重設視窗狀態 (Esc 收合選單與移開滑鼠) |
+| `TryExportAfterMarketRankingItemL` | `TryExportAfterRankItemL` | 單次選取左側分類項目 (不含重試) |
+| `ExportAfterMarketRankingItemL` | `ExportAfterRankItemL` | 選取左側分類項目 (含重試) |
+| `TryExportAfterMarketRankingItemR` | `TryExportAfterRankItemR` | 單次匯出右側子項目 (不含重試) |
+| `ExportAfterMarketRankingItemR` | `ExportAfterRankItemR` | 匯出右側子項目 (含重試) |
+| `ExportAfterMarketRankingAll` | `ExportAfterRankAll` | 批次匯出全部盤後排行項目 |
 
 ### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |
@@ -97,9 +107,14 @@
 | `MenuClickSecuritiesQuoteHandler` | `MenuSecQuoteHnd` | 托盤「證券行情」處理函式 |
 | `MenuClickPopularRankingHandler` | `MenuPopRankHnd` | 托盤「熱門排行」處理函式 |
 | `MenuClickAfterMarketRankingHandler` | `MenuAfterRankHnd` | 托盤「盤後排行」處理函式 |
+| `MenuExportPopularRankingHandler` | `MenuPopRankExportHnd` | 托盤「匯出熱門排行」處理函式 |
+| `MenuExportAfterMarketRankingHandler` | `MenuAfterRankExportHnd` | 托盤「匯出盤後排行」處理函式 |
 | `MenuShowResolutionHandler` | `MenuShowResHnd` | 托盤「顯示解析度」處理函式 |
 | `HotkeyLaunchHandler` | `HkLaunchHnd` | 快捷鍵啟動處理函式 |
 | `HotkeyMenuBarHandler` | `HkMenuBarHnd` | 快捷鍵選單列處理函式 |
 | `HotkeySecuritiesQuoteHandler` | `HkSecQuoteHnd` | 快捷鍵證券行情處理函式 |
 | `HotkeyPopularRankingHandler` | `HkPopRankHnd` | 快捷鍵熱門排行處理函式 |
 | `HotkeyAfterMarketRankingHandler` | `HkAfterRankHnd` | 快捷鍵盤後排行處理函式 |
+| `HotkeyExportPopularRankingHandler` | `HkPopRankExportHnd` | 快捷鍵匯出熱門排行處理函式 |
+| `HotkeyExportAfterMarketRankingHandler` | `HkAfterRankExportHnd` | 快捷鍵匯出盤後排行處理函式 |
+

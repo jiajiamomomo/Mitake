@@ -5,6 +5,7 @@ Source Tree:
 ```txt
 三竹
 ├── ABBREVIATIONS.md
+├── After Rank Export Spec.md
 ├── Mitake.ahk
 ├── README.md
 ├── agents.md
@@ -28,6 +29,7 @@ Source Tree:
 │   ├── export.ahk
 │   ├── utils.ahk
 │   └── window_control.ahk
+├── pop_rank_export_spec.md
 ├── tests
 ├── 熱門排行
 └── 盤後排行
@@ -125,6 +127,16 @@ Source Tree:
 | `TryExportPopularRankingItem` | `TryExportPopRankItem` | 單次匯出單一項目 (不含重試) |
 | `ExportPopularRankingItem` | `ExportPopRankItem` | 匯出單一項目 (含重試) |
 | `ExportPopularRankingAll` | `ExportPopRankAll` | 批次匯出全部項目 |
+| `AfterMarketRankingAssets` | `AfterRankAssets` | 盤後排行匯出所需圖檔清單 |
+| `GetAfterMarketRankingTotalItemsL` | `GetAfterRankTotalItemsL` | 讀取 `[AfterMarketRanking] TotalItemsL` (預設 5) |
+| `GetAfterMarketRankingTotalItemsR` | `GetAfterRankTotalItemsR` | 讀取 `[AfterMarketRanking] TotalItemsR{itemNoL}` (依規格預設) |
+| `GetAfterMarketRankingDestinationRoot` | `GetAfterRankDstRoot` | 取得 `<專案>\盤後排行` 目的根目錄 |
+| `ResetAfterMarketRankingState` | `ResetAfterRankState` | 重設視窗狀態 (Esc 收合選單與移開滑鼠) |
+| `TryExportAfterMarketRankingItemL` | `TryExportAfterRankItemL` | 單次選取左側分類項目 (不含重試) |
+| `ExportAfterMarketRankingItemL` | `ExportAfterRankItemL` | 選取左側分類項目 (含重試) |
+| `TryExportAfterMarketRankingItemR` | `TryExportAfterRankItemR` | 單次匯出右側子項目 (不含重試) |
+| `ExportAfterMarketRankingItemR` | `ExportAfterRankItemR` | 匯出右側子項目 (含重試) |
+| `ExportAfterMarketRankingAll` | `ExportAfterRankAll` | 批次匯出全部盤後排行項目 |
 
 ### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |
@@ -136,12 +148,101 @@ Source Tree:
 | `MenuClickSecuritiesQuoteHandler` | `MenuSecQuoteHnd` | 托盤「證券行情」處理函式 |
 | `MenuClickPopularRankingHandler` | `MenuPopRankHnd` | 托盤「熱門排行」處理函式 |
 | `MenuClickAfterMarketRankingHandler` | `MenuAfterRankHnd` | 托盤「盤後排行」處理函式 |
+| `MenuExportPopularRankingHandler` | `MenuPopRankExportHnd` | 托盤「匯出熱門排行」處理函式 |
+| `MenuExportAfterMarketRankingHandler` | `MenuAfterRankExportHnd` | 托盤「匯出盤後排行」處理函式 |
 | `MenuShowResolutionHandler` | `MenuShowResHnd` | 托盤「顯示解析度」處理函式 |
 | `HotkeyLaunchHandler` | `HkLaunchHnd` | 快捷鍵啟動處理函式 |
 | `HotkeyMenuBarHandler` | `HkMenuBarHnd` | 快捷鍵選單列處理函式 |
 | `HotkeySecuritiesQuoteHandler` | `HkSecQuoteHnd` | 快捷鍵證券行情處理函式 |
 | `HotkeyPopularRankingHandler` | `HkPopRankHnd` | 快捷鍵熱門排行處理函式 |
 | `HotkeyAfterMarketRankingHandler` | `HkAfterRankHnd` | 快捷鍵盤後排行處理函式 |
+| `HotkeyExportPopularRankingHandler` | `HkPopRankExportHnd` | 快捷鍵匯出熱門排行處理函式 |
+| `HotkeyExportAfterMarketRankingHandler` | `HkAfterRankExportHnd` | 快捷鍵匯出盤後排行處理函式 |
+
+
+```
+`After Rank Export Spec.md`:
+
+```md
+# 盤後排行全項目匯出：設計共識
+
+## 範圍
+- 「盤後排行」大致沿用「熱門排行」架構，部分有不同（盤後下拉L/R.png 已備）。
+- 僅支援 **1920x1080**；2560x1440 缺圖時寫 WARN 日誌並中止。
+
+## 前置條件（已就緒）
+- 關聯程式已指向 [bypass.bat](file:///d:/DJC/TEST/三竹/bypass.bat)，但三竹仍會開啟EXCEL →  Excel 仍會搶焦點。
+- 左邊的下拉清單 '盤後下拉L.png' 共有5個項目:法人動向、資券當沖、證券借貨、經營指標、布局配置。
+- 右邊的下拉清單 '盤後下拉R.png' 項目數量不一。
+
+| 中文項目 | 英文縮寫 | 完整英文對照 | 右邊清單數量 |
+| :--- | :--- | :--- | :--- |
+| 法人動向 | INST | Institutional Flows / Activity | 10 |
+| 資券當沖 | M&DT | Margin & Day Trading | 10 |
+| 證券借貸 | SBL | Securities Borrowing & Lending | 4 |
+| 經營指標 | FIN / KPI | Financials / Metrics | 8 |
+| 布局配置 | ALLOC | Asset Allocation / Strategy | 4 |
+
+- 三竹會把匯出檔寫到 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
+
+## 模組 `lib/export.ahk`
+
+### `ExportAfterRankItemL(itemNoL)`：單一項目
+1. `SwitchToAfterRankWin()`：切換到「盤後排行」並最大化
+2. `FindClickImg("盤後下拉L.png")`：搜尋範圍為整個工作區
+3. `Send("{Home}")`
+4. `Send("{Down}")` × (itemNoL − 1)
+5. `Send("{Enter}")`
+6. `Sleep`，等資料刷新（寫死在程式中）
+
+任何一步失敗 → 整個 `ExportAfterRankItemL` 最多重試 **2 次**。
+
+### `ExportAfterRankItemR(itemNoR)`：單一項目
+2. `FindClickImg("盤後下拉R.png")`：搜尋範圍為整個工作區
+3. `Send("{Home}")`
+4. `Send("{Down}")` × (itemNoR − 1)
+5. `Send("{Enter}")`
+6. `Sleep`，等資料刷新（寫死在程式中）
+7. 記錄觸發時間 → `FindClickImg("資料匯出.png")`
+8. 輪詢 OutDir，找出比觸發時間新的 CSV（逾時與輪詢間隔都寫死在程式中）
+9. `CopyToDateDir(csv, <專案>\盤後排行)` → `盤後排行\YYYYMMDD\<原始檔名>`，同名就覆蓋
+
+任何一步失敗 → 整個 `ExportAfterRankItemR` 最多重試 **2 次**。
+
+### `ExportAfterRankAll(showMsgBox := true)`：批次
+- 外迴圈跑 `itemNoL := 1..TotalItemsL`
+- 內迴圈跑 `itemNoR := 1..TotalItemsR`
+- 日期資料夾在批次開始時決定一次（`A_Now`），整批共用
+- 所有步驟都寫進 `logs/app.log`
+- 完成後跳出 MsgBox 摘要（`showMsgBox := false` 時不跳，供無頭測試使用）
+
+### 純函式（無頭單元測試）
+- `FindNewCsv(outDir, sinceTime)`：找出最新且晚於 `sinceTime` 的 CSV，找不到則回傳 `""`
+- `CopyToDateDir(src, dstRoot, dateStr)`：視需要建立 `dstRoot\dateStr\`，再以覆蓋模式複製
+
+## 設定（`settings.ini`，UTF-16 LE）
+```ini
+[AfterMarketRanking]
+TotalItemsL = 5
+TotalItemsR1 = 10
+TotalItemsR2 = 10
+TotalItemsR3 = 4
+TotalItemsR4 = 8
+TotalItemsR5 = 4
+OutDir = D:\Program Files\MitakeGU\USER\OUT
+
+[Hotkey]
+AfterRankExportHotkey =
+```
+延遲、逾時、重試次數都寫死在程式中。
+
+## 進入點
+- 托盤選單「匯出盤後排行」，加上熱鍵 `AfterRankExportHotkey`（預設留空），沿用現有的表驅動註冊方式。
+
+## 測試
+- `tests/test_export.ahk`：用暫存目錄測 `FindNewCsv`、`CopyToDateDir`，以及讀取 `TotalItems` 的預設值，並加入 `run_tests.ahk`。
+- 手動實機驗證腳本：`tests/test_after_rank_export.ahk`（實際點擊，可只跑單一項目或整批）。
+- 更新 `ABBREVIATIONS.md` 與 AGENTS.md 的 Roadmap 及目錄結構。
 
 ```
 `Mitake.ahk`:
@@ -165,6 +266,7 @@ A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHnd)
 A_TrayMenu.Add("切換至 熱門排行", MenuPopRankHnd)
 A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
 A_TrayMenu.Add("匯出熱門排行", (*) => ExportPopRankAll())
+A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
@@ -206,7 +308,8 @@ hkDefs := [
     {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
     {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
     {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()},
-    {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()}
+    {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()},
+    {cfg: "AfterRankExportHotkey",    def: "",    desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}
 ]
 
 for item in hkDefs {
@@ -225,6 +328,8 @@ MenuToggleBarHnd(*) => ToggleMenuBar()
 MenuSecQuoteHnd(*)  => ClickSecQuoteMenu()
 MenuPopRankHnd(*)   => SwitchToPopRankWin()
 MenuAfterRankHnd(*)  => SwitchToAfterRankWin()
+MenuAfterRankExportHnd(*) => ExportAfterRankAll()
+MenuPopRankExportHnd(*)   => ExportPopRankAll()
 
 MenuShowResHnd(*) {
     displays := GetAllRes()
@@ -304,12 +409,13 @@ MenuShowResHnd(*) {
 │   ├── test_window_control.ahk # window_control.ahk 單元測試集
 │   ├── test_export.ahk   # export.ahk 無頭單元測試集 (暫存目錄)
 │   ├── test_pop_rank_export.ahk # 熱門排行匯出手動實機驗證腳本
+│   ├── test_after_rank_export.ahk # 盤後排行匯出手動實機驗證腳本
 │   └── helpers/          # 測試輔助模組 (如 Assert 斷言庫)
 │       └── assert.ahk
 ├── bypass.bat            # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
 ├── logs/                 # 執行日誌輸出
 ├── 熱門排行/             # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
-└── 盤後排行/             # "盤後排行"所有項目匯出檔
+└── 盤後排行/             # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
 
 ```
 
@@ -319,7 +425,8 @@ MenuShowResHnd(*) {
 
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
 - [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。
-- [ ] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。
+- [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。
+
 
 ---
 
@@ -387,26 +494,34 @@ MenuShowResHnd(*) {
    - **DPI 虛擬化避坑**：透過第三方環境（如 .NET）偵測螢幕解析度時，若啟用了系統 DPI 縮放會回傳虛擬化後的邏輯尺寸。解析度偵測一律應依賴 AHK v2 原生 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界。
 13. **自繪清單鍵盤導航：`Home` 失效時的 `PageUp` 批次歸位模式**：
    - **現象**：三竹等自訂自繪下拉選單通常未實作標準 Win32 的 `{Home}` 跳至首項行為，發送 `{Home}` 鍵完全被忽略。當展開選單時游標停留在前次選定項目，直接執行 `(ItemNo - 1)` 次 `{Down}` 會造成游標累積位移錯亂，執行數十項時反覆停滯在最末項。
-   - **解決方案**：改用多次（如 5 次）`Send("{PgUp}")` 向上翻頁作為首項歸位機制，百分之百保證游標穩定回到第 1 項，再向下按 `{Down}` 遞增定位。
+   - **解決方案**：改用多次（如 5 次）`Send("{PgUp}")` 向上翻頁作為首項歸位機制，百分之百保證游標穩定回到第 1 項，再向下按 `{Down}` 遞增定位（實作時可採 `Send("{Home}")` 配合批次 `Send("{PgUp}")` 雙重保險，兼顧 Win32 規格語意與自繪缺陷防護）。
 14. **滑鼠停懸 (Hover) 狀態干擾與純淨影像裁切準則 (Tight Cropping)**：
    - **Hover 色偏陷阱**：滑鼠點擊下拉箭頭或按鈕後若游標停留在原地，元件會進入 Hover 高亮狀態（底色、邊框或反鋸齒陰影變更），導致後續搜尋原始未停懸圖檔時引發連鎖式匹配失敗。
    - **防護措施**：點擊任何按鈕或確認選取後，立即將游標移至視窗角落空白區（如 `(10, 10)`）解除 Hover 狀態。
    - **圖檔純淨度**：截取資產圖檔時嚴禁包含周圍易隨視窗狀態或主題色變更的外圍邊界（如標題列藍條、外部黑邊），應僅保留按鈕核心圖示（如 24x30 純圖示），確保各狀態下最高的辨識穩定度。
 15. **自動化批次重試之乾淨狀態復原 (Clean State Reset)**：
    - 當單一項目執行失敗進入重試循環時，若前一次殘留的自繪下拉浮層仍呈展開狀態，直接重新點擊會點在浮層上遮擋底層控制項，引發連鎖失敗。
-   - **解決方案**：在每次進入重試或單項操作開頭，必須呼叫狀態復原常式（`ResetPopRankState`）：送出 `{Esc}` 強制關閉可能殘留的自繪浮層，並移開游標，確保每次重試均處於乾淨的基準環境。
+   - **解決方案**：在每次進入重試或單項操作開頭，必須呼叫狀態復原常式（`ResetPopRankState` / `ResetAfterRankState`）：送出 `{Esc}` 強制關閉可能殘留的自繪浮層，並移開游標，確保每次重試均處於乾淨的基準環境。
+16. **關聯程式外部焦點搶奪防禦 (External Focus Theft Defense)**：
+   - **現象**：三竹在點擊「資料匯出」後會呼叫系統關聯應用，即便配置 `bypass.bat` 攔截，系統或背景進程仍可能非同步喚醒 Excel 或第三方應用奪取前台焦點。
+   - **陷阱**：在後續子項目操作中，若單純依賴圖像搜尋座標發送滑鼠或鍵盤事件，事件會直接打在被搶走的外部視窗上，導致連鎖操作落空。
+   - **解決方案**：在子項目操作與下拉展開的每道工序起點，必須將視窗聚焦邏輯（`SwitchToSubWin` / `ActivateMitake`）作為第一道防線防禦性奪回焦點，確保前台控制權始終鎖定於三竹子視窗。
+17. **二維階層批次之失敗級聯隔離與熔斷 (Hierarchical Failure Cascading & Circuit Breaking)**：
+   - **現象**：盤後排行等功能屬於 $L \times R$ 的巢狀階層結構（5 個分類 $\times$ 4~10 個子項目，共 36 項）。若外層分類 $L$ 選取失敗（如動畫渲染延遲或自繪下拉未命中），若未進行架構隔離，內層迴圈仍會盲目執行該分類底下的所有子項目，導致每個子項目均經歷完整的重試與逾時輪詢，造成長達數分鐘的無效阻塞。
+   - **解決方案**：外層分類 $L$ 在重試耗盡失敗時應實施立即熔斷（Circuit Breaking），跳過內層迴圈，並將所屬預期子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單後繼續下一分類，兼顧批次處理效能與統計報表精確度。
 
 ### 五、 測試架構與實機驗證工具隔離 (Test Architecture & Tooling)
 
-16. **資料驅動測試套件重構 (Data-Driven Test Suite Pattern)**：
+18. **資料驅動測試套件重構 (Data-Driven Test Suite Pattern)**：
    - 多解析度、多資產與多座標的驗證若逐條複製貼上斷言，會導致測試代碼膨脹且難以擴展。
    - 解決方案：改採資料驅動測試結構，以案例陣列（`cases := [{...}]`）配合迴圈動態檢驗，不僅提升測試可讀性與擴展性，也能輸出更具語意化的動態失敗除錯訊息。
-17. **無頭自動化測試與手動實機驗證工具之架構隔離**：
+19. **無頭自動化測試與手動實機驗證工具之架構隔離**：
    - **無頭自動化測試**：`tests/run_tests.ahk` 作為持續整合與版本回歸閘門，必須保持純淨、快速且無阻斷式彈窗；業務函式應提供 UI 抑制參數（`showMsgBox := false`）。
    - **手動實機驗證工具**：涉及真實桌面焦點切換、滑鼠軌跡與確認彈窗的實機校正需求，應獨立建置專用腳本（`tests/test_coords_click.ahk`），搭配平滑游標移動（`MouseMove(x, y, 10)`）與 `ToolTip` 浮動標籤提示目標名稱與落點座標，兼顧除錯直觀性而不干擾全域測試。
-18. **背景 Session 與互動式桌面隔離限制 (Session Isolation & UIPI)**：
+20. **背景 Session 與互動式桌面隔離限制 (Session Isolation & UIPI)**：
    - 命令列終端（PowerShell / 背景 Task）受限於 Windows Session 隔離機制，無法直接枚舉或控制真實使用者互動桌面上的 GUI 視窗（`WinGetList` / `WinActive` 會回傳 0）。
    - 單元測試焦點切換應以 `WinExist` 及函式回傳值驗證，避免依賴無桌面環境下的 `WinActive`；定位疑難問題時，以實體執行日誌 `logs/app.log` 留下的真實軌跡為準。
+
 
 
 ---
@@ -446,7 +561,8 @@ MenuBarHotkey = ^!b
 SecuritiesQuoteHotkey = 
 PopularRankingHotkey = 
 AfterMarketRankingHotkey = 
-PopRankExportHotkey=
+PopRankExportHotkey = 
+AfterRankExportHotkey = 
 
 [MenuBar]
 TriggerMode = click
@@ -473,8 +589,8 @@ ClickX_2560x1440 = 78
 ClickY_2560x1440 = 80
 ClickX = 77
 ClickY = 80
-TotalItems=44
-OutDir=D:\Program Files\MitakeGU\USER\OUT
+TotalItems = 44
+OutDir = D:\Program Files\MitakeGU\USER\OUT
 
 [AfterMarketRanking]
 ClickX_1920x1080 = 78
@@ -483,10 +599,17 @@ ClickX_2560x1440 = 78
 ClickY_2560x1440 = 110
 ClickX = 78
 ClickY = 110
-[ExportButton]
-ClickX_1920x1080=1777
-ClickY_1920x1080=50
+TotalItemsL = 5
+TotalItemsR1 = 10
+TotalItemsR2 = 10
+TotalItemsR3 = 4
+TotalItemsR4 = 8
+TotalItemsR5 = 4
+OutDir = D:\Program Files\MitakeGU\USER\OUT
 
+[ExportButton]
+ClickX_1920x1080 = 1777
+ClickY_1920x1080 = 50
 ```
 `lib\export.ahk`:
 
@@ -832,6 +955,339 @@ ExportPopRankAll(showMsgBox := true) {
         MsgBox(summary, "熱門排行匯出", result.failed.Length ? "Icon!" : "Iconi")
     return result
 }
+
+; =============================================================================
+; 盤後排行匯出函式群 (左側分類 5 項，各分類所屬子項目數量不一)
+; =============================================================================
+
+/**
+ * 盤後排行匯出所需之圖檔 (須存在於 assets/{解析度}/)
+ */
+AfterRankAssets() => ["盤後下拉L.png", "盤後下拉R.png", "資料匯出.png"]
+
+/**
+ * 取得「盤後排行」左側下拉清單項目總數
+ * @returns {Integer} 項目總數 (settings.ini [AfterMarketRanking] TotalItemsL，預設 5)
+ */
+GetAfterRankTotalItemsL() {
+    val := GetCfg("AfterMarketRanking", "TotalItemsL", "5")
+    return IsInteger(val) && Integer(val) > 0 ? Integer(val) : 5
+}
+
+/**
+ * 取得「盤後排行」指定左側項目對應之右側下拉清單項目總數
+ * @param {Integer} itemNoL 左側項目序號 (1 起算)
+ * @returns {Integer} 項目總數 (settings.ini [AfterMarketRanking] TotalItemsR{itemNoL}，預設依規格對照)
+ */
+GetAfterRankTotalItemsR(itemNoL := 1) {
+    static defCounts := Map(1, 10, 2, 10, 3, 4, 4, 8, 5, 4)
+    defVal := defCounts.Has(itemNoL) ? String(defCounts[itemNoL]) : "10"
+    val := GetCfg("AfterMarketRanking", "TotalItemsR" itemNoL, defVal)
+    return IsInteger(val) && Integer(val) > 0 ? Integer(val) : Integer(defVal)
+}
+
+/**
+ * 取得盤後排行匯出檔之專案目的根目錄
+ * @returns {String} <專案根目錄>\盤後排行
+ */
+GetAfterRankDstRoot() {
+    return GetRootDir() "\盤後排行"
+}
+
+/**
+ * 重設「盤後排行」視窗狀態：
+ * 送出 Esc 鍵關閉殘留下拉選單，並將滑鼠游標移至左上角空白區以清除按鈕 Hover 高亮狀態
+ * @param {String|Integer} tgtWin 目標視窗 (預設抓取「盤後排行」)
+ */
+ResetAfterRankState(tgtWin := "") {
+    winTitle := (tgtWin != "") ? tgtWin : GetAfterRankWinTitle()
+    hwnd := FindMitakeWin(winTitle)
+    if (hwnd) {
+        if (!WinActive(hwnd)) {
+            WinActivate(hwnd)
+            Sleep(50)
+        }
+        Send("{Esc}")
+        Sleep(100)
+        oldMouse := CoordMode("Mouse", "Client")
+        MouseMove(10, 10, 0)
+        CoordMode("Mouse", oldMouse)
+        Sleep(50)
+    }
+}
+
+/**
+ * 執行單次「盤後排行」左側下拉項目選取 (不含重試)
+ * 1. SwitchToAfterRankWin()
+ * 2. FindClickImg("盤後下拉L.png")
+ * 3. Send("{Home}") + PgUp 批次歸位
+ * 4. Send("{Down}") × (itemNoL - 1)
+ * 5. Send("{Enter}")
+ * 6. Sleep 等待資料刷新
+ * @param {Integer} itemNoL 左側項目序號 (1 起算)
+ * @returns {Boolean} 是否選取成功
+ */
+TryExportAfterRankItemL(itemNoL) {
+    res := GetRes(0)
+    winTitle := GetAfterRankWinTitle()
+
+    ; 0. 操作前重設狀態 (收合殘留下拉選單並移開滑鼠清除 Hover)
+    ResetAfterRankState(winTitle)
+
+    ; 1. 切換至「盤後排行」視窗並最大化 (未開啟則自動開啟)
+    if !SwitchToAfterRankWin() {
+        LogMsg(Format("盤後排行 L#{1}：無法切換至盤後排行視窗", itemNoL), "WARN")
+        return false
+    }
+    Sleep(ExportTiming.DropOpenDelayMs)
+
+    ; 2. 點擊左側下拉箭頭 (搜尋整個工作區，variation 設為 45)
+    dropImg := GetRootDir() "\assets\" res.str "\盤後下拉L.png"
+    if !FindClickImg(dropImg, 0, 0, res.width, res.height, 45, winTitle, true).found {
+        LogMsg(Format("盤後排行 L#{1}：找不到左側下拉箭頭 (盤後下拉L.png)", itemNoL), "WARN")
+        ResetAfterRankState(winTitle)
+        return false
+    }
+    Sleep(ExportTiming.DropOpenDelayMs)
+
+    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → Down × (itemNoL-1) → Enter
+    Send("{Home}")
+    Loop 5 {
+        Send("{PgUp}")
+        Sleep(ExportTiming.KeyDelayMs)
+    }
+    Loop itemNoL - 1 {
+        Send("{Down}")
+        Sleep(ExportTiming.KeyDelayMs)
+    }
+    Sleep(ExportTiming.KeyDelayMs)
+    Send("{Enter}")
+
+    ; 選取後立即移開滑鼠，避免游標停在按鈕上方造成 Hover 影響
+    oldMouse := CoordMode("Mouse", "Client")
+    MouseMove(10, 10, 0)
+    CoordMode("Mouse", oldMouse)
+
+    ; 6. 等待資料刷新
+    Sleep(ExportTiming.RefreshDelayMs)
+    LogMsg(Format("盤後排行 L#{1}：選取完成", itemNoL), "INFO")
+    return true
+}
+
+/**
+ * 選取「盤後排行」左側下拉項目 (失敗自動重試最多 ExportTiming.MaxRetries 次)
+ * @param {Integer} itemNoL 左側項目序號 (1 起算)
+ * @returns {Boolean} 是否成功
+ */
+ExportAfterRankItemL(itemNoL) {
+    if (!IsInteger(itemNoL) || itemNoL < 1) {
+        LogMsg(Format("盤後排行 L 選取：項目序號無效 ({1})", itemNoL), "ERROR")
+        return false
+    }
+
+    Loop ExportTiming.MaxRetries + 1 {
+        if (A_Index > 1) {
+            LogMsg(Format("盤後排行 L#{1}：第 {2} 次重試，先進行狀態重設", itemNoL, A_Index - 1), "WARN")
+            ResetAfterRankState()
+            Sleep(300)
+        }
+        try {
+            if TryExportAfterRankItemL(itemNoL)
+                return true
+        } catch as err {
+            LogMsg(Format("盤後排行 L#{1}：執行異常 {2}", itemNoL, err.Message), "ERROR")
+        }
+    }
+    LogMsg(Format("盤後排行 L#{1}：重試 {2} 次後仍失敗", itemNoL, ExportTiming.MaxRetries), "ERROR")
+    ResetAfterRankState()
+    return false
+}
+
+/**
+ * 執行單次「盤後排行」右側下拉項目匯出 (不含重試)
+ * 1. 確保切換至「盤後排行」視窗 (防止被 Excel 等程式搶走焦點)
+ * 2. FindClickImg("盤後下拉R.png")
+ * 3. Send("{Home}") + PgUp 批次歸位
+ * 4. Send("{Down}") × (itemNoR - 1)
+ * 5. Send("{Enter}")
+ * 6. Sleep 等待資料刷新
+ * 7. 記錄觸發時間 → FindClickImg("資料匯出.png")
+ * 8. 輪詢 OutDir 尋找比觸發時間新的 CSV
+ * 9. CopyToDateDir(csv, <專案>\盤後排行, dateStr)
+ * @param {Integer} itemNoR 右側項目序號 (1 起算)
+ * @param {Integer} itemNoL 所屬左側項目序號 (供日誌記錄，選用)
+ * @param {String} dateStr 日期子資料夾名稱 (YYYYMMDD)
+ * @returns {String} 複製後的目的檔路徑，失敗則回傳空字串
+ */
+TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
+    res := GetRes(0)
+    winTitle := GetAfterRankWinTitle()
+    tag := (itemNoL > 0) ? Format("L#{1}-R#{2}", itemNoL, itemNoR) : Format("R#{1}", itemNoR)
+
+    ; 0. 操作前重設狀態
+    ResetAfterRankState(winTitle)
+
+    ; 1. 切換至「盤後排行」視窗 (若 Excel 或其他程式搶焦點則切回)
+    if !SwitchToAfterRankWin() {
+        LogMsg(Format("盤後排行 {1}：無法切換至盤後排行視窗", tag), "WARN")
+        return ""
+    }
+    Sleep(ExportTiming.DropOpenDelayMs)
+
+    ; 2. 點擊右側下拉箭頭 (搜尋整個工作區，variation 設為 45)
+    dropImg := GetRootDir() "\assets\" res.str "\盤後下拉R.png"
+    if !FindClickImg(dropImg, 0, 0, res.width, res.height, 45, winTitle, true).found {
+        LogMsg(Format("盤後排行 {1}：找不到右側下拉箭頭 (盤後下拉R.png)", tag), "WARN")
+        ResetAfterRankState(winTitle)
+        return ""
+    }
+    Sleep(ExportTiming.DropOpenDelayMs)
+
+    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → Down × (itemNoR-1) → Enter
+    Send("{Home}")
+    Loop 5 {
+        Send("{PgUp}")
+        Sleep(ExportTiming.KeyDelayMs)
+    }
+    Loop itemNoR - 1 {
+        Send("{Down}")
+        Sleep(ExportTiming.KeyDelayMs)
+    }
+    Sleep(ExportTiming.KeyDelayMs)
+    Send("{Enter}")
+
+    ; 選取後立即移開滑鼠
+    oldMouse := CoordMode("Mouse", "Client")
+    MouseMove(10, 10, 0)
+    CoordMode("Mouse", oldMouse)
+
+    ; 6. 等待資料刷新
+    Sleep(ExportTiming.RefreshDelayMs)
+
+    ; 7. 點擊資料匯出
+    sinceTime := A_Now
+    if !ClickExportBtn(winTitle, res) {
+        LogMsg(Format("盤後排行 {1}：找不到資料匯出按鈕", tag), "WARN")
+        ResetAfterRankState(winTitle)
+        return ""
+    }
+
+    ; 點擊後再次移開滑鼠
+    oldMouse := CoordMode("Mouse", "Client")
+    MouseMove(10, 10, 0)
+    CoordMode("Mouse", oldMouse)
+
+    ; 8. 輪詢輸出目錄取得新 CSV
+    outDir := GetExportOutDir("AfterMarketRanking")
+    csv := WaitNewCsv(outDir, sinceTime, ExportTiming.TimeoutMs, ExportTiming.PollMs)
+    if (csv == "") {
+        LogMsg(Format("盤後排行 {1}：{2} 毫秒內未在 {3} 偵測到新 CSV", tag, ExportTiming.TimeoutMs, outDir), "WARN")
+        ResetAfterRankState(winTitle)
+        return ""
+    }
+
+    ; 9. 複製至 盤後排行\YYYYMMDD\
+    dst := CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)
+    if (dst != "")
+        LogMsg(Format("盤後排行 {1}：已匯出 {2}", tag, dst), "INFO")
+    return dst
+}
+
+/**
+ * 匯出「盤後排行」右側單一項目 (失敗自動重試最多 ExportTiming.MaxRetries 次)
+ * @param {Integer} itemNoR 右側項目序號 (1 起算)
+ * @param {Integer} itemNoL 所屬左側項目序號 (供日誌記錄，選用)
+ * @param {String} dateStr 日期子資料夾名稱 (預設為今日 YYYYMMDD)
+ * @returns {Boolean} 是否成功
+ */
+ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
+    tag := (itemNoL > 0) ? Format("L#{1}-R#{2}", itemNoL, itemNoR) : Format("R#{1}", itemNoR)
+    if (!IsInteger(itemNoR) || itemNoR < 1) {
+        LogMsg(Format("盤後排行匯出：項目序號無效 ({1})", tag), "ERROR")
+        return false
+    }
+    if (dateStr == "")
+        dateStr := FormatTime(A_Now, "yyyyMMdd")
+
+    Loop ExportTiming.MaxRetries + 1 {
+        if (A_Index > 1) {
+            LogMsg(Format("盤後排行 {1}：第 {2} 次重試，先進行狀態重設", tag, A_Index - 1), "WARN")
+            ResetAfterRankState()
+            Sleep(300)
+        }
+        try {
+            if (TryExportAfterRankItemR(itemNoR, itemNoL, dateStr) != "")
+                return true
+        } catch as err {
+            LogMsg(Format("盤後排行 {1}：執行異常 {2}", tag, err.Message), "ERROR")
+        }
+    }
+    LogMsg(Format("盤後排行 {1}：重試 {2} 次後仍失敗", tag, ExportTiming.MaxRetries), "ERROR")
+    ResetAfterRankState()
+    return false
+}
+
+/**
+ * 批次匯出「盤後排行」全部項目 (所有 L 與各 L 對應之所有 R)
+ * @param {Boolean} showMsgBox 完成或中止時是否彈出提示視窗 (無頭測試時設為 false)
+ * @returns {Object} {total: Integer, ok: Array, failed: Array, aborted: Boolean}
+ */
+ExportAfterRankAll(showMsgBox := true) {
+    totalL := GetAfterRankTotalItemsL()
+    totalItems := 0
+    Loop totalL {
+        totalItems += GetAfterRankTotalItemsR(A_Index)
+    }
+    result := {total: totalItems, ok: [], failed: [], aborted: false}
+
+    ; 前置檢查：主顯示器解析度與圖檔是否齊全 (僅支援 1920x1080，2560x1440 缺圖寫 WARN 日誌並中止)
+    res := GetRes(0)
+    if !ValidatePriRes(showMsgBox) || !HasResAssets(AfterRankAssets(), res.str) {
+        msg := Format("盤後排行匯出中止：解析度 {1} 缺少圖檔 (assets\{1}\盤後下拉L.png、盤後下拉R.png、資料匯出.png) 或不支援", res.str)
+        LogMsg(msg, "WARN")
+        if showMsgBox
+            MsgBox(msg, "盤後排行匯出", "Icon!")
+        result.aborted := true
+        return result
+    }
+
+    dateStr := FormatTime(A_Now, "yyyyMMdd")
+    LogMsg(Format("盤後排行匯出開始：共 {1} 項，目的資料夾 {2}\{3}", totalItems, GetAfterRankDstRoot(), dateStr), "INFO")
+
+    Loop totalL {
+        itemNoL := A_Index
+        totalR := GetAfterRankTotalItemsR(itemNoL)
+        LogMsg(Format("盤後排行：開始處理左側分類 #{1} (共 {2} 個子項目)", itemNoL, totalR), "INFO")
+
+        if !ExportAfterRankItemL(itemNoL) {
+            LogMsg(Format("盤後排行：左側分類 #{1} 選取失敗，跳過所屬 {2} 個子項目", itemNoL, totalR), "ERROR")
+            Loop totalR {
+                result.failed.Push(Format("L{1}-R{2}", itemNoL, A_Index))
+            }
+            continue
+        }
+
+        Loop totalR {
+            itemNoR := A_Index
+            tag := Format("L{1}-R{2}", itemNoL, itemNoR)
+            if ExportAfterRankItemR(itemNoR, itemNoL, dateStr)
+                result.ok.Push(tag)
+            else
+                result.failed.Push(tag)
+        }
+    }
+
+    failedStr := ""
+    for k in result.failed
+        failedStr .= (failedStr == "" ? "" : ", ") k
+    summary := Format("盤後排行匯出完成：成功 {1} / {2} 項{3}", result.ok.Length, result.total
+        , result.failed.Length ? "`n失敗項目：" failedStr : "")
+    LogMsg(StrReplace(summary, "`n", "；"), result.failed.Length ? "WARN" : "INFO")
+    if showMsgBox
+        MsgBox(summary, "盤後排行匯出", result.failed.Length ? "Icon!" : "Iconi")
+    return result
+}
+
 
 ```
 `lib\utils.ahk`:
@@ -1616,5 +2072,63 @@ SwitchToPopRankWin(timeout := 5) {
 SwitchToAfterRankWin(timeout := 5) {
     return SwitchToSubWin(GetAfterRankWinTitle(), "盤後排行", ClickAfterRankMenu, timeout)
 }
+
+```
+`pop_rank_export_spec.md`:
+
+```md
+# 熱門排行全項目匯出：設計共識
+
+## 範圍
+- 先做「熱門排行」；「盤後排行」之後沿用同一架構（盤後下拉L/R.png 已備）。
+- 僅支援 **1920x1080**；2560x1440 缺圖時寫 WARN 日誌並中止。
+
+## 前置條件（已就緒）
+- 三竹的關聯程式指向 [bypass.bat](file:///d:/DJC/TEST/三竹/bypass.bat)，會立即結束 → 不會自動開 Excel 搶焦點。
+- 三竹會把匯出檔寫到 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_漲停鎖住.csv`）。
+
+## 新模組 `lib/export.ahk`
+
+### `ExportPopRankItem(itemNo)`：單一項目
+1. `SwitchToPopRankWin()`：切換到「熱門排行」並最大化
+2. `FindClickImg("熱門下拉.png")`：搜尋範圍為整個工作區
+3. `Send("{Home}")`
+4. `Send("{Down}")` × (itemNo − 1)
+5. `Send("{Enter}")`
+6. `Sleep`，等資料刷新（寫死在程式中）
+7. 記錄觸發時間 → `FindClickImg("資料匯出.png")`
+8. 輪詢 OutDir，找出比觸發時間新的 CSV（逾時與輪詢間隔都寫死在程式中）
+9. `CopyToDateDir(csv, <專案>\熱門排行)` → `熱門排行\YYYYMMDD\<原始檔名>`，同名就覆蓋
+
+任何一步失敗 → 整個 `ExportPopRankItem` 最多重試 **2 次**。
+
+### `ExportPopRankAll(showMsgBox := true)`：批次
+- 迴圈跑 `itemNo := 1..TotalItems`
+- 日期資料夾在批次開始時決定一次（`A_Now`），整批共用
+- 所有步驟都寫進 `logs/app.log`
+- 完成後跳出 MsgBox 摘要（`showMsgBox := false` 時不跳，供無頭測試使用）
+
+### 純函式（無頭單元測試）
+- `FindNewCsv(outDir, sinceTime)`：找出最新且晚於 `sinceTime` 的 CSV，找不到則回傳 `""`
+- `CopyToDateDir(src, dstRoot, dateStr)`：視需要建立 `dstRoot\dateStr\`，再以覆蓋模式複製
+
+## 設定（`settings.ini`，UTF-16 LE）
+```ini
+[PopularRanking]
+TotalItems = 25
+OutDir = D:\Program Files\MitakeGU\USER\OUT
+
+[Hotkey]
+PopRankExportHotkey =
+```
+延遲、逾時、重試次數都寫死在程式中。
+
+## 進入點
+- 托盤選單「匯出熱門排行」，加上熱鍵 `PopRankExportHotkey`（預設留空），沿用現有的表驅動註冊方式。
+
+## 測試
+- `tests/test_export.ahk`：用暫存目錄測 `FindNewCsv`、`CopyToDateDir`，以及讀取 `TotalItems` 的預設值，並加入 `run_tests.ahk`。
+- 手動實機驗證腳本：`tests/test_pop_rank_export.ahk`（實際點擊，可只跑單一項目或整批）。
+- 更新 `ABBREVIATIONS.md` 與 AGENTS.md 的 Roadmap 及目錄結構。
 
 ```

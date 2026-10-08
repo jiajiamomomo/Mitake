@@ -125,6 +125,31 @@ Test_ExportBtnCoords() {
     Assert.AssertTrue(c2.x == 0 && c2.y == 0, "ExportButton 2560x1440 should be unconfigured (0,0) to avoid blind clicks")
 }
 
+Test_GetAfterRankTotalItems() {
+    l := GetAfterRankTotalItemsL()
+    Assert.AssertEquals(5, l, "GetAfterRankTotalItemsL should read TotalItemsL (5) from settings.ini")
+
+    expectedR := [10, 10, 4, 8, 4]
+    Loop expectedR.Length {
+        r := GetAfterRankTotalItemsR(A_Index)
+        Assert.AssertEquals(expectedR[A_Index], r, Format("GetAfterRankTotalItemsR({1}) should return {2}", A_Index, expectedR[A_Index]))
+    }
+}
+
+Test_GetAfterRankDstRoot() {
+    Assert.AssertEquals(GetRootDir() "\盤後排行", GetAfterRankDstRoot(), "Destination root should be <project>\盤後排行")
+}
+
+Test_AfterRankAssets() {
+    assets := AfterRankAssets()
+    Assert.AssertEquals(3, assets.Length, "AfterRankAssets should have 3 items")
+    Assert.AssertEquals("盤後下拉L.png", assets[1], "First asset should be 盤後下拉L.png")
+    Assert.AssertEquals("盤後下拉R.png", assets[2], "Second asset should be 盤後下拉R.png")
+    Assert.AssertEquals("資料匯出.png", assets[3], "Third asset should be 資料匯出.png")
+    Assert.AssertTrue(HasResAssets(assets, "1920x1080"), "1920x1080 should have all AfterRankAssets")
+    Assert.AssertTrue(!HasResAssets(assets, "2560x1440"), "2560x1440 should report missing AfterRankAssets")
+}
+
 RunExportTests() {
     FileAppend("Running Export Tests...`n", "*")
     Test_GetPopRankTotalItems()
@@ -136,4 +161,8 @@ RunExportTests() {
     Test_CopyToDateDir()
     Test_HasResAssets()
     Test_ExportBtnCoords()
+    Test_GetAfterRankTotalItems()
+    Test_GetAfterRankDstRoot()
+    Test_AfterRankAssets()
 }
+

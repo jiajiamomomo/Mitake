@@ -16,6 +16,7 @@ A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHnd)
 A_TrayMenu.Add("切換至 熱門排行", MenuPopRankHnd)
 A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
 A_TrayMenu.Add("匯出熱門排行", (*) => ExportPopRankAll())
+A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
@@ -57,7 +58,8 @@ hkDefs := [
     {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
     {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
     {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()},
-    {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()}
+    {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()},
+    {cfg: "AfterRankExportHotkey",    def: "",    desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}
 ]
 
 for item in hkDefs {
@@ -76,6 +78,8 @@ MenuToggleBarHnd(*) => ToggleMenuBar()
 MenuSecQuoteHnd(*)  => ClickSecQuoteMenu()
 MenuPopRankHnd(*)   => SwitchToPopRankWin()
 MenuAfterRankHnd(*)  => SwitchToAfterRankWin()
+MenuAfterRankExportHnd(*) => ExportAfterRankAll()
+MenuPopRankExportHnd(*)   => ExportPopRankAll()
 
 MenuShowResHnd(*) {
     displays := GetAllRes()
