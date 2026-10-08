@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
-; 視窗標題採部分比對，且僅操作目前可見的視窗
+; 通用 WinTitle 維持部分比對；三竹相關視窗一律由 FindMitakeWin 進行程序與標題精確匹配
 SetTitleMatchMode(2)
 DetectHiddenWindows(false)
 
@@ -15,12 +15,12 @@ A_TrayMenu.Add() ; 分隔線
 A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHnd)
 A_TrayMenu.Add("切換至 熱門排行", MenuPopRankHnd)
 A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
-A_TrayMenu.Add("匯出熱門排行", (*) => ExportPopRankAll())
-A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())
+A_TrayMenu.Add("匯出熱門排行", MenuPopRankExportHnd)
+A_TrayMenu.Add("匯出盤後排行", MenuAfterRankExportHnd)
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
-; 註冊 ShellHook 監聽視窗切換與焦點事件，自動最大化標題非空白的三竹股市視窗
+; 註冊 ShellHook 監聽視窗切換與焦點事件，只自動最大化精確識別的三竹股市視窗
 DllCall("RegisterShellHookWindow", "Ptr", A_ScriptHwnd)
 OnMessage(DllCall("RegisterWindowMessage", "Str", "SHELLHOOK"), ShellMsg)
 
@@ -31,12 +31,24 @@ ShellMsg(wParam, lParam, *) {
             proc := WinGetProcessName(lParam)
             winTitle := WinGetTitle(lParam)
             procCfg := GetCfg("App", "ProcessName", "三竹股市.exe")
-            if ShouldMaximizeMitakeWin(proc, winTitle, procCfg) {
+            if ShouldMaximizeMitakeWin(proc, winTitle, procCfg) && WinGetMinMax(lParam) != 1 {
                 WinMaximize(lParam)
             }
         }
     }
 }
+
+RunUiAction(desc, handler) {
+    if IsExportRunActive() {
+        LogMsg(Format("忽略「{1}」：目前正在執行匯出作業", desc), "WARN")
+        return false
+    }
+    return handler.Call()
+}
+
+#HotIf IsExportRunActive()
+$Esc:: RequestExportCancel()
+#HotIf
 
 ; 註冊快捷鍵輔助函式
 RegisterHk(cfgKey, defKey, desc, handler) {
@@ -53,11 +65,11 @@ RegisterHk(cfgKey, defKey, desc, handler) {
 
 ; 快捷鍵與功能對應表
 hkDefs := [
-    {cfg: "LaunchHotkey",             def: "^!m", desc: "啟動",     hnd: (*) => LaunchMitake()},
-    {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: (*) => ToggleMenuBar()},
-    {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
-    {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
-    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()},
+    {cfg: "LaunchHotkey",             def: "^!m", desc: "啟動",     hnd: MenuLaunchHnd},
+    {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: MenuToggleBarHnd},
+    {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: MenuSecQuoteHnd},
+    {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: MenuPopRankHnd},
+    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: MenuAfterRankHnd},
     {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()},
     {cfg: "AfterRankExportHotkey",    def: "",    desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}
 ]
@@ -73,19 +85,24 @@ LogMsg(Format("三竹股市 AutoHotkey 控制腳本載入完成。主顯示器�
 LaunchMitake()
 
 ; 托盤選單處理函式 (保持命名兼容性)
-MenuLaunchHnd(*)   => LaunchMitake()
-MenuToggleBarHnd(*) => ToggleMenuBar()
-MenuSecQuoteHnd(*)  => ClickSecQuoteMenu()
-MenuPopRankHnd(*)   => SwitchToPopRankWin()
-MenuAfterRankHnd(*)  => SwitchToAfterRankWin()
+MenuLaunchHnd(*)   => RunUiAction("啟動/切換 三竹股市", LaunchMitake)
+MenuToggleBarHnd(*) => RunUiAction("切換選單列", ToggleMenuBar)
+MenuSecQuoteHnd(*)  => RunUiAction("證券行情", ClickSecQuoteMenu)
+MenuPopRankHnd(*)   => RunUiAction("熱門排行", SwitchToPopRankWin)
+MenuAfterRankHnd(*)  => RunUiAction("盤後排行", SwitchToAfterRankWin)
 MenuAfterRankExportHnd(*) => ExportAfterRankAll()
 MenuPopRankExportHnd(*)   => ExportPopRankAll()
 
 MenuShowResHnd(*) {
+    if IsExportRunActive() {
+        LogMsg("匯出作業進行中，暫不顯示解析度視窗", "WARN")
+        return false
+    }
     displays := GetAllRes()
     info := ""
     for idx, d in displays {
         info .= Format("顯示器 #{1}: {2} ({3}x{4}) {5}`n", idx, d.str, d.width, d.height, d.isPrimary ? "[主顯示器]" : "")
     }
     MsgBox(info, "系統顯示器解析度資訊", "Iconi")
+    return true
 }

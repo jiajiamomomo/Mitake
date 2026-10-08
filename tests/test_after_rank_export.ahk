@@ -46,22 +46,35 @@ if (arg1 = "all" || arg1 == "0") {
 
 ; 解析 L 與 R 參數
 itemNoL := 0, itemNoR := 0
+parsed := false
 
 if (arg2 != "") {
-    itemNoL := Integer(arg1)
-    itemNoR := Integer(arg2)
+    if (IsInteger(arg1) && IsInteger(arg2)) {
+        itemNoL := Integer(arg1)
+        itemNoR := Integer(arg2)
+        parsed := true
+    }
 } else if InStr(arg1, ",") {
     parts := StrSplit(arg1, ",")
-    itemNoL := Integer(Trim(parts[1]))
-    itemNoR := Integer(Trim(parts[2]))
+    if (parts.Length == 2 && IsInteger(Trim(parts[1])) && IsInteger(Trim(parts[2]))) {
+        itemNoL := Integer(Trim(parts[1]))
+        itemNoR := Integer(Trim(parts[2]))
+        parsed := true
+    }
 } else if InStr(arg1, "-") {
     parts := StrSplit(arg1, "-")
-    itemNoL := Integer(Trim(parts[1]))
-    itemNoR := Integer(Trim(parts[2]))
+    if (parts.Length == 2 && IsInteger(Trim(parts[1])) && IsInteger(Trim(parts[2]))) {
+        itemNoL := Integer(Trim(parts[1]))
+        itemNoR := Integer(Trim(parts[2]))
+        parsed := true
+    }
 } else if IsInteger(arg1) {
     itemNoL := Integer(arg1)
     itemNoR := 0 ; 代表該分類全部
-} else {
+    parsed := true
+}
+
+if !parsed {
     MsgBox("參數格式無效：" arg1, "盤後排行匯出驗證", "Icon!")
     ExitApp(1)
 }

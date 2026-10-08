@@ -1,0 +1,2234 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "三竹",
+    "languages": [
+      "ahk",
+      "batch",
+      "config",
+      "markdown",
+      "txt"
+    ],
+    "frameworks": [],
+    "description": "使用 AutoHotkey v2 自動化操作三竹股市電腦版，批次匯出熱門排行與盤後排行資料。",
+    "analyzedAt": "2026-10-08T15:15:46.909Z",
+    "gitCommitHash": "b623971786d57e6b0a8a4608ee069c9f3c09a8a9"
+  },
+  "nodes": [
+    {
+      "id": "document:ABBREVIATIONS.md",
+      "type": "document",
+      "name": "ABBREVIATIONS.md",
+      "filePath": "ABBREVIATIONS.md",
+      "summary": "集中定義 AutoHotkey 專案的核心字彙縮寫與函式改名對照，涵蓋 utils、window_control、export 與主程式處理器，作為跨模組命名一致性的規範來源。",
+      "tags": [
+        "documentation",
+        "命名規範",
+        "縮寫對照",
+        "autohotkey"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:After Rank Export Spec.md",
+      "type": "document",
+      "name": "After Rank Export Spec.md",
+      "filePath": "After Rank Export Spec.md",
+      "summary": "說明盤後排行全項目匯出的需求與模組設計，包括左右階層選取、狀態復原、重試與分類熔斷、設定檔結構、入口整合及測試驗證。",
+      "tags": [
+        "documentation",
+        "盤後排行",
+        "匯出流程",
+        "設計規格",
+        "測試"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "以精簡文字概述 Mitake 專案：使用 AutoHotkey v2 自動化操作三竹股市電腦版並匯出資料。",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "專案概覽",
+        "autohotkey"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:agents.md",
+      "type": "document",
+      "name": "agents.md",
+      "filePath": "agents.md",
+      "summary": "專案級開發指南，整理執行環境、目錄與功能路線，以及編碼、設定驅動架構、AutoHotkey v2、Windows UI 自動化與 TDD 的實務規範。",
+      "tags": [
+        "documentation",
+        "開發指南",
+        "架構規範",
+        "tdd",
+        "autohotkey"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:bypass.bat",
+      "type": "file",
+      "name": "bypass.bat",
+      "filePath": "bypass.bat",
+      "summary": "提供給三竹匯出流程呼叫的空操作關聯程式，立即結束以阻止 Excel 自動開啟，同時保留 MitakeGU 輸出目錄中的 CSV 檔案。",
+      "tags": [
+        "輔助腳本",
+        "匯出流程",
+        "excel-攔截",
+        "batch"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Windows Batch 腳本僅執行 exit，沒有可供呼叫的標籤或子程序。"
+    },
+    {
+      "id": "document:pop_rank_export_spec.md",
+      "type": "document",
+      "name": "pop_rank_export_spec.md",
+      "filePath": "pop_rank_export_spec.md",
+      "summary": "定義熱門排行全項目匯出的完整規格，涵蓋時序參數、單項操作與重試、批次彙整、INI 設定、入口操作及測試驗證體系。",
+      "tags": [
+        "documentation",
+        "熱門排行",
+        "匯出流程",
+        "設計規格",
+        "測試"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:prompt.md",
+      "type": "document",
+      "name": "prompt.md",
+      "filePath": "prompt.md",
+      "summary": "由 code2prompt 產生的專案快照，彙整目錄樹以及主要說明文件、AutoHotkey 模組、設定檔與批次腳本內容，供 AI 取得單一上下文。",
+      "tags": [
+        "documentation",
+        "程式碼快照",
+        "ai-context",
+        "code2prompt"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Markdown 以檔案標記與 fenced code blocks 串接多種語言來源，屬於產生式聚合文件。"
+    },
+    {
+      "id": "file:Mitake.ahk",
+      "type": "file",
+      "name": "Mitake.ahk",
+      "filePath": "Mitake.ahk",
+      "summary": "專案主入口，載入共用模組、建立托盤選單與表驅動熱鍵，並透過 ShellHook 自動最大化三竹股市視窗後啟動主程式。",
+      "tags": [
+        "entry-point",
+        "事件處理",
+        "熱鍵註冊",
+        "視窗自動化"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "採用 AHK v2 一級函式與胖箭頭 callback 建立表驅動熱鍵及托盤事件。"
+    },
+    {
+      "id": "function:Mitake.ahk:ShellMsg",
+      "type": "function",
+      "name": "ShellMsg",
+      "filePath": "Mitake.ahk",
+      "lineRange": [
+        27,
+        39
+      ],
+      "summary": "處理 Windows ShellHook 視窗啟用事件，辨識三竹程序與非空標題後自動最大化目標視窗。",
+      "tags": [
+        "event-handler",
+        "shell-hook",
+        "視窗管理"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:Mitake.ahk:RegisterHk",
+      "type": "function",
+      "name": "RegisterHk",
+      "filePath": "Mitake.ahk",
+      "lineRange": [
+        42,
+        52
+      ],
+      "summary": "從設定檔讀取熱鍵並註冊處理函式，同時將成功或例外結果寫入日誌。",
+      "tags": [
+        "utility",
+        "熱鍵註冊",
+        "configuration",
+        "錯誤處理"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:config/settings.ini",
+      "type": "config",
+      "name": "settings.ini",
+      "filePath": "config/settings.ini",
+      "summary": "集中設定三竹執行檔、視窗標題、熱鍵、逾時、各解析度點擊座標，以及熱門排行與盤後排行的項目數與匯出路徑。",
+      "tags": [
+        "configuration",
+        "解析度座標",
+        "熱鍵",
+        "匯出設定"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "檔案使用 UTF-16 LE，以相容 Windows INI API 對中文字串的讀取。"
+    },
+    {
+      "id": "file:lib/export.ahk",
+      "type": "file",
+      "name": "export.ahk",
+      "filePath": "lib/export.ahk",
+      "summary": "實作熱門排行與盤後排行的完整 CSV 匯出流程，包括自繪下拉導航、影像辨識、狀態重設、輪詢、重試、檔案歸檔及階層失敗熔斷。",
+      "tags": [
+        "service",
+        "匯出流程",
+        "檔案輪詢",
+        "重試機制",
+        "ui-automation"
+      ],
+      "complexity": "complex",
+      "languageNotes": "以 AHK v2 物件回傳批次結果，並透過固定時序常數協調自繪 UI 的非同步渲染。"
+    },
+    {
+      "id": "function:lib/export.ahk:FindNewCsv",
+      "type": "function",
+      "name": "FindNewCsv",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        57,
+        69
+      ],
+      "summary": "掃描輸出目錄，挑選修改時間不早於指定時間的最新 CSV 檔案。",
+      "tags": [
+        "utility",
+        "檔案搜尋",
+        "csv",
+        "時間篩選"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:lib/export.ahk:IsFileReady",
+      "type": "function",
+      "name": "IsFileReady",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        76,
+        86
+      ],
+      "summary": "嘗試以禁止共享寫入與刪除的方式開啟檔案，判斷 CSV 是否已完成寫入。",
+      "tags": [
+        "utility",
+        "檔案狀態",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:lib/export.ahk:WaitNewCsv",
+      "type": "function",
+      "name": "WaitNewCsv",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        96,
+        106
+      ],
+      "summary": "按指定間隔輪詢新 CSV，直到找到可讀取檔案或到達逾時期限。",
+      "tags": [
+        "檔案輪詢",
+        "timeout",
+        "csv",
+        "同步控制"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:CopyToDateDir",
+      "type": "function",
+      "name": "CopyToDateDir",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        115,
+        130
+      ],
+      "summary": "建立日期子目錄並複製匯出檔，同名時覆蓋且在錯誤時記錄日誌。",
+      "tags": [
+        "檔案歸檔",
+        "utility",
+        "錯誤處理",
+        "日期目錄"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:ResetPopRankState",
+      "type": "function",
+      "name": "ResetPopRankState",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        153,
+        168
+      ],
+      "summary": "重新聚焦熱門排行視窗、送出 Esc 收合殘留選單並移開滑鼠，以建立可重試的乾淨 UI 狀態。",
+      "tags": [
+        "狀態重設",
+        "ui-automation",
+        "焦點管理",
+        "重試機制"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:ClickExportBtn",
+      "type": "function",
+      "name": "ClickExportBtn",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        177,
+        190
+      ],
+      "summary": "優先以影像辨識點擊資料匯出按鈕，失敗時僅在解析度座標有效的情況下降級點擊。",
+      "tags": [
+        "影像辨識",
+        "座標備援",
+        "validation",
+        "ui-automation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:TryExportPopRankItem",
+      "type": "function",
+      "name": "TryExportPopRankItem",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        198,
+        268
+      ],
+      "summary": "執行單一熱門排行項目的無重試匯出交易，涵蓋視窗切換、下拉導航、按鈕點擊、CSV 輪詢與日期歸檔。",
+      "tags": [
+        "匯出流程",
+        "ui-automation",
+        "csv",
+        "工作流"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/export.ahk:ExportPopRankItem",
+      "type": "function",
+      "name": "ExportPopRankItem",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        276,
+        300
+      ],
+      "summary": "驗證熱門排行項目序號並包裝單項匯出，於失敗或例外時重設 UI 狀態後依上限重試。",
+      "tags": [
+        "重試機制",
+        "validation",
+        "錯誤處理",
+        "匯出流程"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:ExportPopRankAll",
+      "type": "function",
+      "name": "ExportPopRankAll",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        307,
+        341
+      ],
+      "summary": "檢查解析度與資產後批次匯出所有熱門排行項目，彙整成功、失敗與中止狀態並輸出摘要。",
+      "tags": [
+        "批次處理",
+        "匯出流程",
+        "validation",
+        "結果彙整"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/export.ahk:ResetAfterRankState",
+      "type": "function",
+      "name": "ResetAfterRankState",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        386,
+        401
+      ],
+      "summary": "重新聚焦盤後排行視窗並清除殘留下拉選單與滑鼠 Hover，確保下一次操作從乾淨狀態開始。",
+      "tags": [
+        "狀態重設",
+        "ui-automation",
+        "焦點管理",
+        "重試機制"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:TryExportAfterRankItemL",
+      "type": "function",
+      "name": "TryExportAfterRankItemL",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        414,
+        459
+      ],
+      "summary": "執行一次盤後排行左側分類選取，使用 Home 與多次 PageUp 歸位自繪清單，再依序導航至指定分類。",
+      "tags": [
+        "下拉導航",
+        "ui-automation",
+        "分類選取",
+        "焦點管理"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/export.ahk:ExportAfterRankItemL",
+      "type": "function",
+      "name": "ExportAfterRankItemL",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        466,
+        488
+      ],
+      "summary": "驗證盤後排行左側分類並對選取流程套用例外防護、狀態重設與有限次重試。",
+      "tags": [
+        "重試機制",
+        "validation",
+        "分類選取",
+        "錯誤處理"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:TryExportAfterRankItemR",
+      "type": "function",
+      "name": "TryExportAfterRankItemR",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        506,
+        578
+      ],
+      "summary": "執行盤後排行右側子項目的單次匯出，防禦外部焦點搶奪並完成選單導航、CSV 偵測與檔案歸檔。",
+      "tags": [
+        "匯出流程",
+        "ui-automation",
+        "焦點防護",
+        "csv",
+        "工作流"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/export.ahk:ExportAfterRankItemR",
+      "type": "function",
+      "name": "ExportAfterRankItemR",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        587,
+        612
+      ],
+      "summary": "驗證右側子項目並以分類標籤記錄重試、例外和最終失敗，包裝單次盤後排行匯出。",
+      "tags": [
+        "重試機制",
+        "validation",
+        "錯誤處理",
+        "匯出流程"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/export.ahk:ExportAfterRankAll",
+      "type": "function",
+      "name": "ExportAfterRankAll",
+      "filePath": "lib/export.ahk",
+      "lineRange": [
+        619,
+        673
+      ],
+      "summary": "走訪所有盤後排行分類與子項目；左側分類失敗時立即熔斷其內層批次，並精確彙整整體匯出結果。",
+      "tags": [
+        "批次處理",
+        "熔斷機制",
+        "階層迴圈",
+        "結果彙整",
+        "匯出流程"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:lib/utils.ahk",
+      "type": "file",
+      "name": "utils.ahk",
+      "filePath": "lib/utils.ahk",
+      "summary": "提供設定檔編碼維護、專案根目錄定位、INI 讀取、日誌與多顯示器解析度驗證等跨模組基礎能力。",
+      "tags": [
+        "utility",
+        "configuration",
+        "日誌",
+        "顯示器",
+        "編碼"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/utils.ahk:EnsureIniEnc",
+      "type": "function",
+      "name": "EnsureIniEnc",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        7,
+        23
+      ],
+      "summary": "檢查 INI 的 BOM，若非 UTF-16 LE 則以 UTF-8 讀入並轉存，以確保中文設定可由 Windows API 正確解析。",
+      "tags": [
+        "編碼",
+        "configuration",
+        "檔案轉換",
+        "錯誤容忍"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/utils.ahk:GetRootDir",
+      "type": "function",
+      "name": "GetRootDir",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        29,
+        47
+      ],
+      "summary": "自腳本目錄向上搜尋專案識別檔與目錄，快取並回傳專案根路徑。",
+      "tags": [
+        "utility",
+        "路徑解析",
+        "singleton",
+        "快取"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/utils.ahk:GetCfg",
+      "type": "function",
+      "name": "GetCfg",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        56,
+        71
+      ],
+      "summary": "維護設定檔編碼後讀取指定 INI 鍵，對缺檔、空值或例外一致回傳呼叫端預設值。",
+      "tags": [
+        "configuration",
+        "utility",
+        "錯誤容忍",
+        "預設值"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/utils.ahk:LogMsg",
+      "type": "function",
+      "name": "LogMsg",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        78,
+        97
+      ],
+      "summary": "建立日誌目錄並以 UTF-8 追加帶時間戳與等級的訊息，同步送往 OutputDebug。",
+      "tags": [
+        "日誌",
+        "utility",
+        "檔案輸出",
+        "除錯"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/utils.ahk:GetRes",
+      "type": "function",
+      "name": "GetRes",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        104,
+        133
+      ],
+      "summary": "透過 AHK 原生 MonitorGet 取得指定或主顯示器的實體邊界，並以邊界差值計算解析度資訊。",
+      "tags": [
+        "顯示器",
+        "解析度",
+        "win32",
+        "utility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/utils.ahk:GetAllRes",
+      "type": "function",
+      "name": "GetAllRes",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        139,
+        148
+      ],
+      "summary": "列舉系統全部顯示器並回傳每個顯示器的解析度與邊界資訊。",
+      "tags": [
+        "顯示器",
+        "列舉",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:lib/utils.ahk:IsSupportedRes",
+      "type": "function",
+      "name": "IsSupportedRes",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        156,
+        166
+      ],
+      "summary": "檢查解析度字串是否存在於允許清單，預設僅接受 1920x1080 與 2560x1440。",
+      "tags": [
+        "validation",
+        "解析度",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:lib/utils.ahk:ValidatePriRes",
+      "type": "function",
+      "name": "ValidatePriRes",
+      "filePath": "lib/utils.ahk",
+      "lineRange": [
+        173,
+        186
+      ],
+      "summary": "驗證主顯示器解析度並記錄錯誤，可選擇是否顯示阻斷式提示視窗。",
+      "tags": [
+        "validation",
+        "解析度",
+        "錯誤處理",
+        "無頭測試"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:lib/window_control.ahk",
+      "type": "file",
+      "name": "window_control.ahk",
+      "filePath": "lib/window_control.ahk",
+      "summary": "封裝三竹主視窗與排行子視窗的定位、啟動、前景焦點、最大化、影像搜尋及解析度座標備援，是桌面 UI 自動化的核心邊界。",
+      "tags": [
+        "service",
+        "視窗管理",
+        "影像辨識",
+        "ui-automation",
+        "焦點管理"
+      ],
+      "complexity": "complex",
+      "languageNotes": "大量使用 AHK v2 Win API、ImageSearch 與 Client 座標模式，並針對自繪選單保護焦點與展開狀態。"
+    },
+    {
+      "id": "function:lib/window_control.ahk:FindMitakeWin",
+      "type": "function",
+      "name": "FindMitakeWin",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        46,
+        56
+      ],
+      "summary": "先以目標標題尋找 HWND，再以三竹程序名稱作精確標題備援，避免同程序多視窗誤判。",
+      "tags": [
+        "視窗定位",
+        "win32",
+        "utility",
+        "標題匹配"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/window_control.ahk:ClickPoint",
+      "type": "function",
+      "name": "ClickPoint",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        65,
+        83
+      ],
+      "summary": "依設定選擇 ControlClick 或實體滑鼠點擊，並可在實體點擊前安全激活目標視窗。",
+      "tags": [
+        "滑鼠輸入",
+        "ui-automation",
+        "configuration",
+        "焦點管理"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/window_control.ahk:SwitchToMainWin",
+      "type": "function",
+      "name": "SwitchToMainWin",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        91,
+        108
+      ],
+      "summary": "定位三竹主視窗、激活並最大化，等待前景就緒後回傳明確布林結果。",
+      "tags": [
+        "視窗切換",
+        "焦點管理",
+        "timeout",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/window_control.ahk:LaunchMitake",
+      "type": "function",
+      "name": "LaunchMitake",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        124,
+        177
+      ],
+      "summary": "驗證解析度後重用既有三竹視窗或依設定啟動執行檔，處理等待、錯誤提示與最後的主視窗切換。",
+      "tags": [
+        "程序啟動",
+        "視窗管理",
+        "validation",
+        "錯誤處理"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:ActivateMitake",
+      "type": "function",
+      "name": "ActivateMitake",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        185,
+        213
+      ],
+      "summary": "還原最小化視窗並透過 AllowSetForegroundWindow 與 SetForegroundWindow 突破前景鎖定，僅在必要時最大化。",
+      "tags": [
+        "焦點管理",
+        "win32",
+        "視窗還原",
+        "前景鎖定"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:ToggleMenuBar",
+      "type": "function",
+      "name": "ToggleMenuBar",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        221,
+        270
+      ],
+      "summary": "依 key、click 或 image 模式開啟三竹自繪選單列，影像模式失敗時採設定檔座標備援。",
+      "tags": [
+        "選單控制",
+        "影像辨識",
+        "configuration",
+        "座標備援"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:GetImgSize",
+      "type": "function",
+      "name": "GetImgSize",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        278,
+        294
+      ],
+      "summary": "以暫時 GUI 圖片控制項讀取圖檔尺寸，缺檔或失敗時提供安全的預設尺寸。",
+      "tags": [
+        "影像工具",
+        "gui",
+        "錯誤容忍",
+        "utility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/window_control.ahk:FindClickImg",
+      "type": "function",
+      "name": "FindClickImg",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        308,
+        349
+      ],
+      "summary": "在目標視窗 Client 區域執行 ImageSearch，計算圖像中心後點擊並回傳命中座標，同時完整恢復座標模式。",
+      "tags": [
+        "影像辨識",
+        "ui-automation",
+        "座標計算",
+        "錯誤處理"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:GetAssetImgPath",
+      "type": "function",
+      "name": "GetAssetImgPath",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        357,
+        396
+      ],
+      "summary": "依指定或目前解析度解析資產圖檔，依序嘗試現行命名、相容命名與多層備援路徑。",
+      "tags": [
+        "資產解析",
+        "解析度",
+        "路徑備援",
+        "utility"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:GetResCoords",
+      "type": "function",
+      "name": "GetResCoords",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        409,
+        435
+      ],
+      "summary": "從 INI 解析指定功能與解析度的 X/Y 座標，支援兩種鍵名與通用座標的相容回退。",
+      "tags": [
+        "configuration",
+        "解析度座標",
+        "相容性",
+        "utility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:lib/window_control.ahk:ClickSecQuoteMenu",
+      "type": "function",
+      "name": "ClickSecQuoteMenu",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        443,
+        470
+      ],
+      "summary": "先切回主視窗，再以影像辨識點擊證券行情選單；未命中時改用解析度設定座標。",
+      "tags": [
+        "選單控制",
+        "影像辨識",
+        "座標備援",
+        "焦點管理"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:ClickRankMenu",
+      "type": "function",
+      "name": "ClickRankMenu",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        482,
+        524
+      ],
+      "summary": "共用化熱門排行與盤後排行的階層選單點擊，保護展開狀態、提供座標備援並可等待子視窗出現。",
+      "tags": [
+        "選單控制",
+        "影像辨識",
+        "抽象化",
+        "視窗等待"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:lib/window_control.ahk:SwitchToSubWin",
+      "type": "function",
+      "name": "SwitchToSubWin",
+      "filePath": "lib/window_control.ahk",
+      "lineRange": [
+        558,
+        568
+      ],
+      "summary": "若排行子視窗已存在便直接聚焦，否則呼叫傳入的開啟函式從主選單建立視窗。",
+      "tags": [
+        "視窗切換",
+        "factory",
+        "焦點管理",
+        "callback"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/capture_asset.ahk",
+      "type": "file",
+      "name": "capture_asset.ahk",
+      "filePath": "tests/capture_asset.ahk",
+      "summary": "互動式資產截圖工具，讓使用者以滑鼠定位並擷取緊密 PNG 區域至目前解析度的 assets 目錄。",
+      "tags": [
+        "test-tool",
+        "資產擷取",
+        "影像校正",
+        "互動式"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/diagnose_export_btn.ahk",
+      "type": "file",
+      "name": "diagnose_export_btn.ahk",
+      "filePath": "tests/diagnose_export_btn.ahk",
+      "summary": "互動式診斷資料匯出按鈕的圖像辨識與座標備援，支援多種容許度測試、即時座標提示及實際點擊。",
+      "tags": [
+        "test-tool",
+        "診斷",
+        "影像辨識",
+        "座標校正"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:tests/diagnose_export_btn_Read Me.txt",
+      "type": "document",
+      "name": "diagnose_export_btn_Read Me.txt",
+      "filePath": "tests/diagnose_export_btn_Read Me.txt",
+      "summary": "說明資料匯出按鈕診斷工具的前置條件、Space 圖像比對流程、成功判讀方式與 Enter 實際點擊測試。",
+      "tags": [
+        "documentation",
+        "診斷指南",
+        "影像辨識",
+        "手動測試"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/helpers/assert.ahk",
+      "type": "file",
+      "name": "assert.ahk",
+      "filePath": "tests/helpers/assert.ahk",
+      "summary": "提供 AHK 測試共用斷言類別，累計成功與失敗、收集錯誤並將測試摘要輸出至主控台與日誌。",
+      "tags": [
+        "test",
+        "assertion",
+        "測試輔助",
+        "結果彙整"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/helpers/assert.ahk:Assert",
+      "type": "class",
+      "name": "Assert",
+      "filePath": "tests/helpers/assert.ahk",
+      "lineRange": [
+        3,
+        53
+      ],
+      "summary": "以靜態狀態實作真值、相等斷言、摘要與重設，作為整個無頭測試套件的輕量測試框架。",
+      "tags": [
+        "test",
+        "assertion",
+        "singleton",
+        "測試框架"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/helpers/assert.ahk:AssertEquals",
+      "type": "function",
+      "name": "AssertEquals",
+      "filePath": "tests/helpers/assert.ahk",
+      "lineRange": [
+        18,
+        29
+      ],
+      "summary": "比較預期值與實際值，成功時累計通過數，失敗時保存訊息並輸出至主控台。",
+      "tags": [
+        "test",
+        "assertion",
+        "相等比較",
+        "錯誤收集"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/helpers/assert.ahk:Summary",
+      "type": "function",
+      "name": "Summary",
+      "filePath": "tests/helpers/assert.ahk",
+      "lineRange": [
+        31,
+        46
+      ],
+      "summary": "彙總測試計數、輸出格式化摘要並更新測試結果日誌，最後回傳整體是否零失敗。",
+      "tags": [
+        "test",
+        "結果彙整",
+        "日誌",
+        "退出判定"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/run_tests.ahk",
+      "type": "file",
+      "name": "run_tests.ahk",
+      "filePath": "tests/run_tests.ahk",
+      "summary": "無頭測試總入口，依序執行 utils、視窗控制與匯出測試，依斷言摘要決定程序退出碼。",
+      "tags": [
+        "entry-point",
+        "test",
+        "test-runner",
+        "回歸閘門"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_after_rank_export.ahk",
+      "type": "file",
+      "name": "test_after_rank_export.ahk",
+      "filePath": "tests/test_after_rank_export.ahk",
+      "summary": "盤後排行手動實機驗證入口，解析 all、分類與子項目參數，實際操作 GUI 並以退出碼和彈窗回報結果。",
+      "tags": [
+        "test",
+        "手動驗證",
+        "盤後排行",
+        "ui-automation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_coords_click.ahk",
+      "type": "file",
+      "name": "test_coords_click.ahk",
+      "filePath": "tests/test_coords_click.ahk",
+      "summary": "用於校正熱門排行與盤後排行選單座標的互動式 GUI 工具，支援命令列模式及帶 ToolTip 的平滑點擊展示。",
+      "tags": [
+        "test-tool",
+        "座標校正",
+        "互動式",
+        "ui-automation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_coords_click.ahk:TestCoordinateClick",
+      "type": "function",
+      "name": "TestCoordinateClick",
+      "filePath": "tests/test_coords_click.ahk",
+      "lineRange": [
+        12,
+        74
+      ],
+      "summary": "確保三竹主視窗就緒後依設定座標逐步點擊證券行情與排行項目，等待子視窗並以提示和日誌呈現校正結果。",
+      "tags": [
+        "手動驗證",
+        "座標校正",
+        "視窗等待",
+        "ui-automation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/test_export.ahk",
+      "type": "file",
+      "name": "test_export.ahk",
+      "filePath": "tests/test_export.ahk",
+      "summary": "以暫存目錄與實際資產驗證 CSV 尋找、輪詢、複製、排行項目數、解析度座標與資產完整性的無頭測試套件。",
+      "tags": [
+        "test",
+        "匯出流程",
+        "檔案系統",
+        "data-driven"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/test_export.ahk:Test_FindNewCsv",
+      "type": "function",
+      "name": "Test_FindNewCsv",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        48,
+        66
+      ],
+      "summary": "建立新舊與非 CSV 測試檔，驗證時間門檻、檔案類型與缺少目錄時的搜尋行為。",
+      "tags": [
+        "test",
+        "csv",
+        "檔案搜尋",
+        "邊界案例"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_export.ahk:Test_FindNewCsv_Newest",
+      "type": "function",
+      "name": "Test_FindNewCsv_Newest",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        68,
+        77
+      ],
+      "summary": "建立不同修改時間的 CSV，驗證搜尋結果會選取最新檔案。",
+      "tags": [
+        "test",
+        "csv",
+        "時間排序"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/test_export.ahk:Test_WaitNewCsv_Timeout",
+      "type": "function",
+      "name": "Test_WaitNewCsv_Timeout",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        79,
+        90
+      ],
+      "summary": "驗證 CSV 輪詢在無結果時遵守短逾時，並能立即辨識已存在的新檔。",
+      "tags": [
+        "test",
+        "timeout",
+        "檔案輪詢",
+        "csv"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_export.ahk:Test_CopyToDateDir",
+      "type": "function",
+      "name": "Test_CopyToDateDir",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        92,
+        111
+      ],
+      "summary": "驗證日期目錄建立、來源保留、同名覆寫與來源缺失時的複製結果。",
+      "tags": [
+        "test",
+        "檔案歸檔",
+        "檔案系統",
+        "邊界案例"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_export.ahk:Test_GetAfterRankTotalItems",
+      "type": "function",
+      "name": "Test_GetAfterRankTotalItems",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        129,
+        138
+      ],
+      "summary": "以資料驅動陣列驗證盤後排行五個分類及其右側項目數與設定檔一致。",
+      "tags": [
+        "test",
+        "data-driven",
+        "configuration",
+        "盤後排行"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/test_export.ahk:Test_AfterRankAssets",
+      "type": "function",
+      "name": "Test_AfterRankAssets",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        144,
+        153
+      ],
+      "summary": "驗證盤後排行資產清單順序、支援解析度資產完整性與不支援解析度的缺檔結果。",
+      "tags": [
+        "test",
+        "影像資產",
+        "解析度",
+        "盤後排行"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_export.ahk:RunExportTests",
+      "type": "function",
+      "name": "RunExportTests",
+      "filePath": "tests/test_export.ahk",
+      "lineRange": [
+        155,
+        169
+      ],
+      "summary": "依固定順序執行全部匯出模組測試案例，供總測試入口呼叫。",
+      "tags": [
+        "test-runner",
+        "匯出流程",
+        "回歸測試"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_pop_rank_export.ahk",
+      "type": "file",
+      "name": "test_pop_rank_export.ahk",
+      "filePath": "tests/test_pop_rank_export.ahk",
+      "summary": "熱門排行手動實機驗證入口，可互動輸入或以參數選擇單項及全部匯出，並以退出碼表示成功或失敗。",
+      "tags": [
+        "test",
+        "手動驗證",
+        "熱門排行",
+        "ui-automation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_utils.ahk",
+      "type": "file",
+      "name": "test_utils.ahk",
+      "filePath": "tests/test_utils.ahk",
+      "summary": "驗證設定預設值、日誌建立、多顯示器資訊、支援解析度與主顯示器驗證的無頭單元測試。",
+      "tags": [
+        "test",
+        "utility",
+        "顯示器",
+        "configuration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_window_control.ahk",
+      "type": "file",
+      "name": "test_window_control.ahk",
+      "filePath": "tests/test_window_control.ahk",
+      "summary": "涵蓋視窗定位、切換與還原、影像資產、雙解析度座標及 mock GUI 行為的視窗控制回歸測試。",
+      "tags": [
+        "test",
+        "視窗管理",
+        "mock-gui",
+        "data-driven",
+        "解析度"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/test_window_control.ahk:Test_GetWindowTitles",
+      "type": "function",
+      "name": "Test_GetWindowTitles",
+      "filePath": "tests/test_window_control.ahk",
+      "lineRange": [
+        81,
+        90
+      ],
+      "summary": "驗證主視窗、熱門排行與盤後排行的設定標題解析結果。",
+      "tags": [
+        "test",
+        "configuration",
+        "視窗標題"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/test_window_control.ahk:Test_ShouldMaximizeMitakeWin",
+      "type": "function",
+      "name": "Test_ShouldMaximizeMitakeWin",
+      "filePath": "tests/test_window_control.ahk",
+      "lineRange": [
+        92,
+        104
+      ],
+      "summary": "以案例表驗證程序名稱、空白標題與無關程序對自動最大化判定的影響。",
+      "tags": [
+        "test",
+        "data-driven",
+        "視窗管理",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_window_control.ahk:Test_WindowSwitching_WithMockGuis",
+      "type": "function",
+      "name": "Test_WindowSwitching_WithMockGuis",
+      "filePath": "tests/test_window_control.ahk",
+      "lineRange": [
+        121,
+        155
+      ],
+      "summary": "建立三個模擬 GUI 視窗，驗證主視窗與排行子視窗的定位及來回切換，再安全銷毀測試資源。",
+      "tags": [
+        "test",
+        "mock-gui",
+        "視窗切換",
+        "整合測試"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/test_window_control.ahk:Test_ActivateMitake_RestoreMinimized",
+      "type": "function",
+      "name": "Test_ActivateMitake_RestoreMinimized",
+      "filePath": "tests/test_window_control.ahk",
+      "lineRange": [
+        157,
+        166
+      ],
+      "summary": "建立並最小化模擬視窗，驗證激活流程可先將其可靠還原。",
+      "tags": [
+        "test",
+        "mock-gui",
+        "視窗還原",
+        "焦點管理"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/test_window_control.ahk:Test_GetResCoords_DualResolutions",
+      "type": "function",
+      "name": "Test_GetResCoords_DualResolutions",
+      "filePath": "tests/test_window_control.ahk",
+      "lineRange": [
+        168,
+        198
+      ],
+      "summary": "以資料驅動案例驗證兩種支援解析度下各選單座標，並覆蓋缺少設定與自動解析度回退。",
+      "tags": [
+        "test",
+        "data-driven",
+        "解析度座標",
+        "邊界案例"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/test_window_control.ahk:RunWindowControlTests",
+      "type": "function",
+      "name": "RunWindowControlTests",
+      "filePath": "tests/test_window_control.ahk",
+      "lineRange": [
+        210,
+        234
+      ],
+      "summary": "依序執行視窗控制模組的全部單元與 mock GUI 測試，供無頭測試入口統一調度。",
+      "tags": [
+        "test-runner",
+        "視窗管理",
+        "回歸測試"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:agents.md",
+      "target": "document:README.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:After Rank Export Spec.md",
+      "target": "document:pop_rank_export_spec.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompt.md",
+      "target": "document:ABBREVIATIONS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompt.md",
+      "target": "document:After Rank Export Spec.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompt.md",
+      "target": "document:README.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompt.md",
+      "target": "document:agents.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompt.md",
+      "target": "file:bypass.bat",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompt.md",
+      "target": "document:pop_rank_export_spec.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:Mitake.ahk",
+      "target": "function:Mitake.ahk:ShellMsg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:Mitake.ahk",
+      "target": "function:Mitake.ahk:RegisterHk",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:Mitake.ahk:RegisterHk",
+      "target": "function:lib/utils.ahk:GetCfg",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:Mitake.ahk:RegisterHk",
+      "target": "function:lib/utils.ahk:LogMsg",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "config:config/settings.ini",
+      "target": "file:Mitake.ahk",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:config/settings.ini",
+      "target": "file:lib/window_control.ahk",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:config/settings.ini",
+      "target": "file:lib/export.ahk",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:FindNewCsv",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:IsFileReady",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:WaitNewCsv",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:CopyToDateDir",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ResetPopRankState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ClickExportBtn",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:TryExportPopRankItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ExportPopRankItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ExportPopRankAll",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ResetAfterRankState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:TryExportAfterRankItemL",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ExportAfterRankItemL",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:TryExportAfterRankItemR",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ExportAfterRankItemR",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/export.ahk",
+      "target": "function:lib/export.ahk:ExportAfterRankAll",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:lib/export.ahk:WaitNewCsv",
+      "target": "function:lib/export.ahk:FindNewCsv",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:WaitNewCsv",
+      "target": "function:lib/export.ahk:IsFileReady",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportPopRankItem",
+      "target": "function:lib/export.ahk:ResetPopRankState",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportPopRankItem",
+      "target": "function:lib/export.ahk:ClickExportBtn",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportPopRankItem",
+      "target": "function:lib/export.ahk:WaitNewCsv",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportPopRankItem",
+      "target": "function:lib/export.ahk:CopyToDateDir",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:ExportPopRankItem",
+      "target": "function:lib/export.ahk:TryExportPopRankItem",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:ExportPopRankAll",
+      "target": "function:lib/export.ahk:ExportPopRankItem",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportAfterRankItemL",
+      "target": "function:lib/export.ahk:ResetAfterRankState",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:ExportAfterRankItemL",
+      "target": "function:lib/export.ahk:TryExportAfterRankItemL",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportAfterRankItemR",
+      "target": "function:lib/export.ahk:ClickExportBtn",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportAfterRankItemR",
+      "target": "function:lib/export.ahk:WaitNewCsv",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:TryExportAfterRankItemR",
+      "target": "function:lib/export.ahk:CopyToDateDir",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:ExportAfterRankItemR",
+      "target": "function:lib/export.ahk:TryExportAfterRankItemR",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:ExportAfterRankAll",
+      "target": "function:lib/export.ahk:ExportAfterRankItemL",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/export.ahk:ExportAfterRankAll",
+      "target": "function:lib/export.ahk:ExportAfterRankItemR",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:EnsureIniEnc",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:GetRootDir",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:GetCfg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:LogMsg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:GetRes",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:GetAllRes",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:IsSupportedRes",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/utils.ahk",
+      "target": "function:lib/utils.ahk:ValidatePriRes",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:lib/utils.ahk:GetCfg",
+      "target": "function:lib/utils.ahk:EnsureIniEnc",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/utils.ahk:GetCfg",
+      "target": "function:lib/utils.ahk:GetRootDir",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/utils.ahk:GetAllRes",
+      "target": "function:lib/utils.ahk:GetRes",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/utils.ahk:ValidatePriRes",
+      "target": "function:lib/utils.ahk:GetRes",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/utils.ahk:ValidatePriRes",
+      "target": "function:lib/utils.ahk:IsSupportedRes",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:FindMitakeWin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:ClickPoint",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:SwitchToMainWin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:LaunchMitake",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:ActivateMitake",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:ToggleMenuBar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:GetImgSize",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:FindClickImg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:GetAssetImgPath",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:GetResCoords",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:ClickSecQuoteMenu",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:ClickRankMenu",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:lib/window_control.ahk",
+      "target": "function:lib/window_control.ahk:SwitchToSubWin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:lib/window_control.ahk:SwitchToMainWin",
+      "target": "function:lib/window_control.ahk:FindMitakeWin",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:SwitchToMainWin",
+      "target": "function:lib/window_control.ahk:ActivateMitake",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:LaunchMitake",
+      "target": "function:lib/window_control.ahk:SwitchToMainWin",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:FindClickImg",
+      "target": "function:lib/window_control.ahk:GetImgSize",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:FindClickImg",
+      "target": "function:lib/window_control.ahk:ClickPoint",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:ClickSecQuoteMenu",
+      "target": "function:lib/window_control.ahk:FindClickImg",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:ClickRankMenu",
+      "target": "function:lib/window_control.ahk:ClickSecQuoteMenu",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:lib/window_control.ahk:SwitchToSubWin",
+      "target": "function:lib/window_control.ahk:FindMitakeWin",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "document:tests/diagnose_export_btn_Read Me.txt",
+      "target": "file:tests/diagnose_export_btn.ahk",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/helpers/assert.ahk",
+      "target": "class:tests/helpers/assert.ahk:Assert",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/helpers/assert.ahk",
+      "target": "function:tests/helpers/assert.ahk:AssertEquals",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/helpers/assert.ahk",
+      "target": "function:tests/helpers/assert.ahk:Summary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_coords_click.ahk",
+      "target": "function:tests/test_coords_click.ahk:TestCoordinateClick",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:Test_FindNewCsv",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:Test_FindNewCsv_Newest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:Test_WaitNewCsv_Timeout",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:Test_CopyToDateDir",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:Test_GetAfterRankTotalItems",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:Test_AfterRankAssets",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_export.ahk",
+      "target": "function:tests/test_export.ahk:RunExportTests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_window_control.ahk",
+      "target": "function:tests/test_window_control.ahk:Test_GetWindowTitles",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_window_control.ahk",
+      "target": "function:tests/test_window_control.ahk:Test_ShouldMaximizeMitakeWin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_window_control.ahk",
+      "target": "function:tests/test_window_control.ahk:Test_WindowSwitching_WithMockGuis",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_window_control.ahk",
+      "target": "function:tests/test_window_control.ahk:Test_ActivateMitake_RestoreMinimized",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_window_control.ahk",
+      "target": "function:tests/test_window_control.ahk:Test_GetResCoords_DualResolutions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_window_control.ahk",
+      "target": "function:tests/test_window_control.ahk:RunWindowControlTests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:tests/test_window_control.ahk:RunWindowControlTests",
+      "target": "function:tests/test_window_control.ahk:Test_WindowSwitching_WithMockGuis",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:entry",
+      "name": "執行入口與系統整合",
+      "description": "負責啟動三竹股市自動化、註冊熱鍵與托盤事件，並以關聯攔截腳本避免匯出後自動開啟 Excel。",
+      "nodeIds": [
+        "file:Mitake.ahk",
+        "file:bypass.bat"
+      ]
+    },
+    {
+      "id": "layer:service",
+      "name": "核心自動化服務",
+      "description": "封裝排行資料匯出、三竹視窗與影像控制，以及設定讀取、日誌和顯示器驗證等共用能力。",
+      "nodeIds": [
+        "file:lib/export.ahk",
+        "file:lib/utils.ahk",
+        "file:lib/window_control.ahk"
+      ]
+    },
+    {
+      "id": "layer:config",
+      "name": "執行設定",
+      "description": "集中維護程式路徑、視窗標題、熱鍵、逾時、解析度座標與排行匯出參數。",
+      "nodeIds": [
+        "config:config/settings.ini"
+      ]
+    },
+    {
+      "id": "layer:test",
+      "name": "測試、校正與診斷",
+      "description": "涵蓋無頭回歸測試、斷言工具、熱門與盤後排行實機驗證，以及圖像資產擷取和座標診斷。",
+      "nodeIds": [
+        "file:tests/capture_asset.ahk",
+        "file:tests/diagnose_export_btn.ahk",
+        "document:tests/diagnose_export_btn_Read Me.txt",
+        "file:tests/helpers/assert.ahk",
+        "file:tests/run_tests.ahk",
+        "file:tests/test_after_rank_export.ahk",
+        "file:tests/test_coords_click.ahk",
+        "file:tests/test_export.ahk",
+        "file:tests/test_pop_rank_export.ahk",
+        "file:tests/test_utils.ahk",
+        "file:tests/test_window_control.ahk"
+      ]
+    },
+    {
+      "id": "layer:documentation",
+      "name": "專案文件與規格",
+      "description": "提供專案導覽、開發規範、命名準則、熱門與盤後排行設計規格，以及供 AI 使用的程式碼快照。",
+      "nodeIds": [
+        "document:ABBREVIATIONS.md",
+        "document:After Rank Export Spec.md",
+        "document:README.md",
+        "document:agents.md",
+        "document:pop_rank_export_spec.md",
+        "document:prompt.md"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "專案一眼總覽",
+      "description": "先用 README 的兩行摘要確認專案邊界：這是一套以 AutoHotkey v2 操作三竹股市電腦版並批次匯出排行資料的 Windows 自動化工具。README 只提供方向，因此理解目標後便立即進入實際啟動流程。",
+      "nodeIds": [
+        "document:README.md"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "主程式如何啟動",
+      "description": "Mitake.ahk 是執行入口，負責載入三個核心模組、建立托盤選單、註冊熱鍵並啟動三竹程式。ShellMsg 監聽 Windows 視窗事件以自動最大化三竹視窗，而 RegisterHk 將設定檔中的熱鍵映射到一級函式，呈現整個系統的控制面。",
+      "nodeIds": [
+        "file:Mitake.ahk",
+        "function:Mitake.ahk:ShellMsg",
+        "function:Mitake.ahk:RegisterHk"
+      ],
+      "languageLesson": "AHK v2 可把函式物件與胖箭頭 closure 直接交給托盤選單、Hotkey 與 OnMessage，適合用表驅動方式減少重複的事件轉發函式。"
+    },
+    {
+      "order": 3,
+      "title": "設定與環境基礎",
+      "description": "入口依賴 settings.ini 集中提供執行檔、視窗標題、熱鍵、逾時、解析度座標及排行項目數，避免 UI 知識散落在呼叫端。utils.ahk 則負責確保 INI 編碼、讀取設定及取得實體顯示器解析度，讓後續自動化都建立在一致且可驗證的環境上。",
+      "nodeIds": [
+        "config:config/settings.ini",
+        "file:lib/utils.ahk",
+        "function:lib/utils.ahk:EnsureIniEnc",
+        "function:lib/utils.ahk:GetCfg",
+        "function:lib/utils.ahk:GetRes"
+      ],
+      "languageLesson": "Windows INI API 對中文內容通常需要 UTF-16 LE BOM；此專案在讀取前主動維護編碼，並以 MonitorGet 的邊界差值取得不受 DPI 虛擬化干擾的解析度。"
+    },
+    {
+      "order": 4,
+      "title": "視窗生命週期",
+      "description": "有了設定與解析度資訊後，window_control.ahk 負責尋找、啟動、還原、聚焦及最大化三竹視窗。FindMitakeWin 以標題和程序名稱區分同程序的多個視窗；LaunchMitake 與 ActivateMitake 再處理既有程序、最小化狀態及 Windows 前景焦點鎖定。",
+      "nodeIds": [
+        "file:lib/window_control.ahk",
+        "function:lib/window_control.ahk:FindMitakeWin",
+        "function:lib/window_control.ahk:LaunchMitake",
+        "function:lib/window_control.ahk:ActivateMitake",
+        "function:lib/window_control.ahk:SwitchToMainWin"
+      ],
+      "languageLesson": "AHK 的 HWND 可直接傳給 WinExist、WinRestore 與 WinActivate；搭配 AllowSetForegroundWindow 和 SetForegroundWindow，能處理一般 WinActivate 只讓工作列閃爍的前景鎖定情況。"
+    },
+    {
+      "order": 5,
+      "title": "影像與選單操作",
+      "description": "視窗就緒後，這一層把自繪介面轉成可重用的互動原語：FindClickImg 搜尋圖像中心、GetResCoords 讀取解析度座標，ClickRankMenu 則組合主選單、子選單與新視窗等待。設計重點是展開選單後避免再次激活視窗，並在影像比對失敗時使用受設定檔約束的座標備援。",
+      "nodeIds": [
+        "function:lib/window_control.ahk:FindClickImg",
+        "function:lib/window_control.ahk:GetAssetImgPath",
+        "function:lib/window_control.ahk:GetResCoords",
+        "function:lib/window_control.ahk:ClickSecQuoteMenu",
+        "function:lib/window_control.ahk:ClickRankMenu"
+      ],
+      "languageLesson": "ImageSearch 與滑鼠事件都受 CoordMode 影響；暫時切換到 Client 座標並在結束時還原，是避免多螢幕與視窗位置造成偏移的關鍵模式。"
+    },
+    {
+      "order": 6,
+      "title": "共用匯出管線",
+      "description": "export.ahk 建立兩種排行共用的檔案管線：點擊資料匯出後，WaitNewCsv 結合時間門檻與檔案可開啟檢查，最後由 CopyToDateDir 歸檔到日期資料夾。ClickExportBtn 同時維持影像辨識優先、有效座標才降級的安全界線，這些高 fan-in 節點是理解兩套業務流程的共同基礎。",
+      "nodeIds": [
+        "file:lib/export.ahk",
+        "function:lib/export.ahk:ClickExportBtn",
+        "function:lib/export.ahk:FindNewCsv",
+        "function:lib/export.ahk:WaitNewCsv",
+        "function:lib/export.ahk:CopyToDateDir"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "熱門排行流程",
+      "description": "熱門排行先由 ResetPopRankState 清除殘留選單與 Hover，再由 TryExportPopRankItem 完成一次下拉導航、資料刷新、匯出偵測與歸檔。ExportPopRankItem 在外層加入驗證與有限重試，ExportPopRankAll 則走訪全部項目並彙整成功、失敗及中止狀態。",
+      "nodeIds": [
+        "function:lib/export.ahk:ResetPopRankState",
+        "function:lib/export.ahk:TryExportPopRankItem",
+        "function:lib/export.ahk:ExportPopRankItem",
+        "function:lib/export.ahk:ExportPopRankAll"
+      ],
+      "languageLesson": "將單次嘗試與重試包裝分離，可讓失敗前後的狀態復原保持明確；自繪清單以多次 PageUp 歸位，比依賴未實作的 Home 鍵更穩定。"
+    },
+    {
+      "order": 8,
+      "title": "盤後排行階層",
+      "description": "盤後排行把操作拆成左側分類與右側子項目兩層：各自有單次嘗試與重試包裝，右側流程再重用共用 CSV 管線。ExportAfterRankAll 遍歷 L×R 結構；當左側分類選取失敗時，它會立即跳過該分類的所有子項目並一次記錄失敗，避免逾時級聯。",
+      "nodeIds": [
+        "function:lib/export.ahk:TryExportAfterRankItemL",
+        "function:lib/export.ahk:ExportAfterRankItemL",
+        "function:lib/export.ahk:TryExportAfterRankItemR",
+        "function:lib/export.ahk:ExportAfterRankItemR",
+        "function:lib/export.ahk:ExportAfterRankAll"
+      ],
+      "languageLesson": "這裡的 circuit breaker（熔斷）作用在外層分類：上游選取已失敗時，不再讓每個下游子項目各自消耗完整重試與逾時成本。"
+    },
+    {
+      "order": 9,
+      "title": "規格與命名共識",
+      "description": "讀完實作後，用兩份排行規格回看時序、重試、批次結果與設定邊界，能理解程式中的取捨並非偶然。ABBREVIATIONS.md 補上跨模組函式與縮寫的命名規則，agents.md 則記錄編碼、焦點控制、TDD 與實機自動化的踩坑經驗，形成維護時的共同語言。",
+      "nodeIds": [
+        "document:pop_rank_export_spec.md",
+        "document:After Rank Export Spec.md",
+        "document:ABBREVIATIONS.md",
+        "document:agents.md"
+      ]
+    },
+    {
+      "order": 10,
+      "title": "外部程式隔離",
+      "description": "三竹完成匯出後會呼叫系統關聯程式，可能非同步開啟 Excel 並搶走焦點。bypass.bat 作為立即結束的空操作關聯程式，保留 CSV 的同時阻止 Excel 啟動，與前述焦點防護共同維持批次流程穩定。",
+      "nodeIds": [
+        "file:bypass.bat"
+      ]
+    },
+    {
+      "order": 11,
+      "title": "無頭回歸測試",
+      "description": "run_tests.ahk 是 TDD 回歸閘門，依序執行工具、視窗控制與匯出測試，最後由輕量 Assert 框架彙總退出碼。test_export.ahk 使用暫存檔案驗證輪詢與歸檔，test_window_control.ahk 以資料驅動案例和 mock GUI 測試雙解析度及視窗切換，讓不需真實交易介面的邏輯保持快速可重現。",
+      "nodeIds": [
+        "file:tests/run_tests.ahk",
+        "class:tests/helpers/assert.ahk:Assert",
+        "file:tests/test_utils.ahk",
+        "file:tests/test_export.ahk",
+        "file:tests/test_window_control.ahk"
+      ],
+      "languageLesson": "AHK GUI 物件會讓腳本成為常駐程序，因此測試建立 mock GUI 後必須銷毀，總 runner 也要用 ExitApp 明確回傳成功或失敗狀態。"
+    },
+    {
+      "order": 12,
+      "title": "實機校正與驗證",
+      "description": "最後進入必須操作真實桌面的工具鏈：test_coords_click.ahk 校正選單座標，diagnose_export_btn.ahk 逐級調整 ImageSearch 容許度，兩個排行驗證腳本則執行單項或整批匯出。診斷說明文件提供操作順序與成功判讀，讓無頭測試無法覆蓋的焦點、Hover 和圖像差異有一致的人工驗證方式。",
+      "nodeIds": [
+        "file:tests/test_coords_click.ahk",
+        "file:tests/diagnose_export_btn.ahk",
+        "document:tests/diagnose_export_btn_Read Me.txt",
+        "file:tests/test_pop_rank_export.ahk",
+        "file:tests/test_after_rank_export.ahk"
+      ]
+    }
+  ]
+}

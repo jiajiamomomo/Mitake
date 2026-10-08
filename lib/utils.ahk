@@ -3,22 +3,52 @@
 /**
  * 確保 INI 設定檔使用 UTF-16 LE 編碼，以支援 Windows API (GetPrivateProfileStringW) 正確讀取中文
  * @param {String} iniPath INI 檔案路徑
+ * @returns {Boolean} 編碼正確或轉換成功時回傳 true
  */
 EnsureIniEnc(iniPath) {
     if !FileExist(iniPath)
-        return
+        return false
+    tmpPath := ""
     try {
         rawBuf := FileRead(iniPath, "RAW")
         if rawBuf.Size >= 2 && NumGet(rawBuf, 0, "UChar") == 0xFF && NumGet(rawBuf, 1, "UChar") == 0xFE {
-            return ; 已經是 UTF-16 LE (BOM: FF FE)
+            return true ; 已經是 UTF-16 LE (BOM: FF FE)
         }
-        ; 若不是 UTF-16 LE，依 UTF-8 讀取並重新轉存為 UTF-16 LE
-        content := FileRead(iniPath, "UTF-8")
-        f := FileOpen(iniPath, "w", "UTF-16")
+
+        hasUtf8Bom := rawBuf.Size >= 3
+            && NumGet(rawBuf, 0, "UChar") == 0xEF
+            && NumGet(rawBuf, 1, "UChar") == 0xBB
+            && NumGet(rawBuf, 2, "UChar") == 0xBF
+        validUtf8 := hasUtf8Bom || rawBuf.Size == 0
+        if (!validUtf8 && rawBuf.Size > 0) {
+            validUtf8 := DllCall("MultiByteToWideChar", "UInt", 65001, "UInt", 0x8
+                , "Ptr", rawBuf.Ptr, "Int", rawBuf.Size, "Ptr", 0, "Int", 0) > 0
+        }
+        content := FileRead(iniPath, validUtf8 ? "UTF-8" : "CP0")
+
+        tmpPath := iniPath ".tmp-" DllCall("GetCurrentProcessId") "-" A_TickCount
+        f := FileOpen(tmpPath, "w", "UTF-16")
+        if !f
+            throw Error("無法建立暫存設定檔")
         f.Write(content)
         f.Close()
-    } catch {
-        ; 發生例外時不中斷主流程
+
+        verifyBuf := FileRead(tmpPath, "RAW")
+        if (verifyBuf.Size < 2 || NumGet(verifyBuf, 0, "UChar") != 0xFF || NumGet(verifyBuf, 1, "UChar") != 0xFE)
+            throw Error("暫存設定檔缺少 UTF-16 LE BOM")
+
+        MOVEFILE_REPLACE_EXISTING := 0x1
+        MOVEFILE_WRITE_THROUGH := 0x8
+        if !DllCall("MoveFileExW", "Str", tmpPath, "Str", iniPath
+            , "UInt", MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH, "Int")
+            throw OSError(A_LastError, "MoveFileExW")
+        return true
+    } catch as err {
+        if (tmpPath != "" && FileExist(tmpPath)) {
+            try FileDelete(tmpPath)
+        }
+        LogMsg(Format("設定檔編碼轉換失敗 [{1}]: {2}", iniPath, err.Message), "ERROR")
+        return false
     }
 }
 
@@ -61,7 +91,8 @@ GetCfg(section, key, defVal := "") {
     if !FileExist(iniPath) {
         return defVal
     }
-    EnsureIniEnc(iniPath)
+    if !EnsureIniEnc(iniPath)
+        return defVal
     try {
         val := IniRead(iniPath, section, key, defVal)
         return val != "" ? val : defVal

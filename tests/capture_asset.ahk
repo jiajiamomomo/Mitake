@@ -15,8 +15,21 @@
 ; =============================================================================
 
 name := A_Args.Length >= 1 ? A_Args[1] : "資料匯出.png"
+if (A_Args.Length >= 2 && !IsInteger(A_Args[2])) || (A_Args.Length >= 3 && !IsInteger(A_Args[3])) {
+    MsgBox("寬度與高度必須是整數。", "資產截圖", "Icon!")
+    ExitApp(1)
+}
 capW := A_Args.Length >= 2 ? Integer(A_Args[2]) : 24
 capH := A_Args.Length >= 3 ? Integer(A_Args[3]) : 24
+
+if !RegExMatch(name, "^[^\\/:*?`"<>|'']+\.png$") {
+    MsgBox("檔名必須是單一安全的 PNG 檔名，不可包含路徑或特殊字元。", "資產截圖", "Icon!")
+    ExitApp(1)
+}
+if (capW < 1 || capW > 500 || capH < 1 || capH > 500) {
+    MsgBox("截圖尺寸必須介於 1x1 與 500x500。", "資產截圖", "Icon!")
+    ExitApp(1)
+}
 
 CoordMode("Mouse", "Screen")
 CoordMode("ToolTip", "Screen")
@@ -54,10 +67,17 @@ $g.CopyFromScreen({1}, {2}, 0, 0, $b.Size)
 $b.Save('{5}', [System.Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $b.Dispose()
     )", "", x, y, capW, capH, out)
-    tmp := A_Temp "\capture_asset.ps1"
+    tmp := A_Temp "\capture_asset_" DllCall("GetCurrentProcessId") "_" A_TickCount ".ps1"
     try FileDelete(tmp)
     FileAppend(ps, tmp, "UTF-8")
-    RunWait(Format('powershell -NoProfile -ExecutionPolicy Bypass -File "{1}"', tmp), , "Hide")
+    exitCode := RunWait(Format('powershell -NoProfile -ExecutionPolicy Bypass -File "{1}"', tmp), , "Hide")
+    try FileDelete(tmp)
+    if (exitCode != 0 || !FileExist(out)) {
+        LogMsg(Format("資產截圖失敗：PowerShell ExitCode={1}", exitCode), "ERROR")
+        MsgBox("資產截圖失敗，請查看 logs\app.log。", "資產截圖", "Icon!")
+        SetTimer(ShowTip, 50)
+        return
+    }
 
     MouseMove(mx, my, 0)
     LogMsg(Format("資產截圖：已擷取 {1} (螢幕 {2},{3} {4}x{5})", out, x, y, capW, capH), "INFO")

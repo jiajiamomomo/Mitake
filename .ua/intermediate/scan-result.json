@@ -1,0 +1,180 @@
+{
+  "name": "三竹",
+  "description": "使用 AutoHotkey (AHK v2) 自動化操作「三竹股市電腦版」，執行資料匯出流程。",
+  "languages": [
+    "ahk",
+    "batch",
+    "config",
+    "markdown",
+    "txt"
+  ],
+  "frameworks": [],
+  "files": [
+    {
+      "path": "ABBREVIATIONS.md",
+      "language": "markdown",
+      "sizeLines": 120,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "After Rank Export Spec.md",
+      "language": "markdown",
+      "sizeLines": 138,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Mitake.ahk",
+      "language": "ahk",
+      "sizeLines": 91,
+      "fileCategory": "code"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 2,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "agents.md",
+      "language": "markdown",
+      "sizeLines": 184,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "bypass.bat",
+      "language": "batch",
+      "sizeLines": 5,
+      "fileCategory": "script"
+    },
+    {
+      "path": "config/settings.ini",
+      "language": "config",
+      "sizeLines": 63,
+      "fileCategory": "config"
+    },
+    {
+      "path": "lib/export.ahk",
+      "language": "ahk",
+      "sizeLines": 674,
+      "fileCategory": "code"
+    },
+    {
+      "path": "lib/utils.ahk",
+      "language": "ahk",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "lib/window_control.ahk",
+      "language": "ahk",
+      "sizeLines": 588,
+      "fileCategory": "code"
+    },
+    {
+      "path": "pop_rank_export_spec.md",
+      "language": "markdown",
+      "sizeLines": 123,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "prompt.md",
+      "language": "markdown",
+      "sizeLines": 2270,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/capture_asset.ahk",
+      "language": "ahk",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/diagnose_export_btn.ahk",
+      "language": "ahk",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/diagnose_export_btn_Read Me.txt",
+      "language": "txt",
+      "sizeLines": 23,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/helpers/assert.ahk",
+      "language": "ahk",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/run_tests.ahk",
+      "language": "ahk",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_after_rank_export.ahk",
+      "language": "ahk",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_coords_click.ahk",
+      "language": "ahk",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_export.ahk",
+      "language": "ahk",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_pop_rank_export.ahk",
+      "language": "ahk",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_utils.ahk",
+      "language": "ahk",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_window_control.ahk",
+      "language": "ahk",
+      "sizeLines": 234,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 23,
+  "filteredByIgnore": 8,
+  "estimatedComplexity": "small",
+  "importMap": {
+    "ABBREVIATIONS.md": [],
+    "After Rank Export Spec.md": [],
+    "Mitake.ahk": [],
+    "README.md": [],
+    "agents.md": [],
+    "bypass.bat": [],
+    "config/settings.ini": [],
+    "lib/export.ahk": [],
+    "lib/utils.ahk": [],
+    "lib/window_control.ahk": [],
+    "pop_rank_export_spec.md": [],
+    "prompt.md": [],
+    "tests/capture_asset.ahk": [],
+    "tests/diagnose_export_btn.ahk": [],
+    "tests/diagnose_export_btn_Read Me.txt": [],
+    "tests/helpers/assert.ahk": [],
+    "tests/run_tests.ahk": [],
+    "tests/test_after_rank_export.ahk": [],
+    "tests/test_coords_click.ahk": [],
+    "tests/test_export.ahk": [],
+    "tests/test_pop_rank_export.ahk": [],
+    "tests/test_utils.ahk": [],
+    "tests/test_window_control.ahk": []
+  }
+}

@@ -50,6 +50,9 @@
 | `GetPopularRankingWindowTitle` | `GetPopRankWinTitle` | 取得「熱門排行」視窗 WinTitle |
 | `GetAfterMarketRankingWindowTitle` | `GetAfterRankWinTitle` | 取得「盤後排行」視窗 WinTitle |
 | `FindMitakeWindow` | `FindMitakeWin` | 尋找三竹股市相關視窗 HWND |
+| `WaitForMitakeWindow` | `WaitMitakeWin` | 等待精確標題之三竹視窗出現 |
+| `IsTrustedForegroundMetadata` | `IsTrustedForegroundMeta` | 判斷前景視窗是否為同程序的可信選單浮層 |
+| `GetSafeForegroundContext` | `GetSafeForegroundContext` | 取得目標視窗或其自繪選單浮層的安全操作 HWND |
 | `ClickClientPoint` | `ClickPoint` | 視窗客戶區座標點擊 (支援 control 與 physical) |
 | `SwitchToMainWindow` | `SwitchToMainWin` | 切換至主程式視窗 |
 | `IsMitakeRunning` | `IsMitakeRunning` | 檢查三竹股市是否執行中 |
@@ -72,11 +75,18 @@
 | 原函式名 | 新縮短函式名 | 說明 |
 | :--- | :--- | :--- |
 | `ExportTimingConstants` | `ExportTiming` | 匯出流程時序常數 (寫死於程式) |
+| `BuildDropdownNavigationPlan` | `BuildDropdownNavPlan` | 建立自繪下拉清單的按鍵導航計畫 |
+| `SendDropdownKeyPulse` | `SendDropdownKeyPulse` | 以 KeyDown／KeyUp 與延遲送出單一導航鍵脈衝 |
+| `ExecuteDropdownNavigation` | `ExecuteDropdownNav` | 依計畫逐鍵執行下拉清單導航 |
 | `PopularRankingAssets` | `PopRankAssets` | 熱門排行匯出所需圖檔清單 |
-| `GetPopularRankingTotalItems` | `GetPopRankTotalItems` | 讀取 `[PopularRanking] TotalItems` (預設 25) |
+| `GetPopularRankingTotalItems` | `GetPopRankTotalItems` | 讀取 `[PopularRanking] TotalItems` (預設 44) |
 | `GetExportOutputDirectory` | `GetExportOutDir` | 讀取三竹 CSV 輸出目錄 `OutDir` |
 | `GetPopularRankingDestinationRoot` | `GetPopRankDstRoot` | 取得 `<專案>\熱門排行` 目的根目錄 |
-| `FindNewestCsvSince` | `FindNewCsv` | 尋找不早於指定時間的最新 CSV |
+| `FindChangedCsv` | `FindNewCsv` | 尋找相較基準快照新增或內容已變更的 CSV |
+| `CaptureCsvState` | `CaptureCsvState` | 建立匯出前 CSV 檔名與內容簽章快照 |
+| `GetCsvSignature` | `GetCsvSignature` | 計算 CSV 修改時間、大小與內容雜湊簽章 |
+| `StageExistingCsvFiles` | `StageExistingCsvs` | 批次前暫存 OUT 目錄既有 CSV，避開同名衝突 |
+| `FinalizeCsvStaging` | `FinalizeCsvStage` | 恢復未被取代的 CSV 並保留同名舊版備份 |
 | `IsFileReady` | `IsFileReady` | 檢查檔案是否已寫入完成 |
 | `WaitForNewCsv` | `WaitNewCsv` | 輪詢等待新 CSV 出現 |
 | `CopyToDateDirectory` | `CopyToDateDir` | 複製至 `YYYYMMDD` 子資料夾 (同名覆蓋) |
@@ -102,6 +112,7 @@
 | :--- | :--- | :--- |
 | `RegisterHotkey` | `RegisterHk` | 註冊快捷鍵設定與日誌記錄輔助函式 |
 | `ShellMessage` | `ShellMsg` | ShellHook 監聽處理常式 |
+| `RunUiAction` | `RunUiAction` | 匯出期間阻擋其他互動式視窗操作 |
 | `MenuLaunchHandler` | `MenuLaunchHnd` | 托盤「啟動/切換 三竹股市」處理函式 |
 | `MenuToggleMenuBarHandler` | `MenuToggleBarHnd` | 托盤「切換選單列」處理函式 |
 | `MenuClickSecuritiesQuoteHandler` | `MenuSecQuoteHnd` | 托盤「證券行情」處理函式 |
@@ -110,11 +121,3 @@
 | `MenuExportPopularRankingHandler` | `MenuPopRankExportHnd` | 托盤「匯出熱門排行」處理函式 |
 | `MenuExportAfterMarketRankingHandler` | `MenuAfterRankExportHnd` | 托盤「匯出盤後排行」處理函式 |
 | `MenuShowResolutionHandler` | `MenuShowResHnd` | 托盤「顯示解析度」處理函式 |
-| `HotkeyLaunchHandler` | `HkLaunchHnd` | 快捷鍵啟動處理函式 |
-| `HotkeyMenuBarHandler` | `HkMenuBarHnd` | 快捷鍵選單列處理函式 |
-| `HotkeySecuritiesQuoteHandler` | `HkSecQuoteHnd` | 快捷鍵證券行情處理函式 |
-| `HotkeyPopularRankingHandler` | `HkPopRankHnd` | 快捷鍵熱門排行處理函式 |
-| `HotkeyAfterMarketRankingHandler` | `HkAfterRankHnd` | 快捷鍵盤後排行處理函式 |
-| `HotkeyExportPopularRankingHandler` | `HkPopRankExportHnd` | 快捷鍵匯出熱門排行處理函式 |
-| `HotkeyExportAfterMarketRankingHandler` | `HkAfterRankExportHnd` | 快捷鍵匯出盤後排行處理函式 |
-

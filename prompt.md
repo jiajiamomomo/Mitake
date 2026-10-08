@@ -6,8 +6,10 @@ Source Tree:
 三竹
 ├── ABBREVIATIONS.md
 ├── After Rank Export Spec.md
+├── LESSONS_LEARNED.md
 ├── Mitake.ahk
 ├── README.md
+├── TODO.md
 ├── agents.md
 ├── assets
 │   ├── 1920x1080
@@ -95,6 +97,9 @@ Source Tree:
 | `GetPopularRankingWindowTitle` | `GetPopRankWinTitle` | 取得「熱門排行」視窗 WinTitle |
 | `GetAfterMarketRankingWindowTitle` | `GetAfterRankWinTitle` | 取得「盤後排行」視窗 WinTitle |
 | `FindMitakeWindow` | `FindMitakeWin` | 尋找三竹股市相關視窗 HWND |
+| `WaitForMitakeWindow` | `WaitMitakeWin` | 等待精確標題之三竹視窗出現 |
+| `IsTrustedForegroundMetadata` | `IsTrustedForegroundMeta` | 判斷前景視窗是否為同程序的可信選單浮層 |
+| `GetSafeForegroundContext` | `GetSafeForegroundContext` | 取得目標視窗或其自繪選單浮層的安全操作 HWND |
 | `ClickClientPoint` | `ClickPoint` | 視窗客戶區座標點擊 (支援 control 與 physical) |
 | `SwitchToMainWindow` | `SwitchToMainWin` | 切換至主程式視窗 |
 | `IsMitakeRunning` | `IsMitakeRunning` | 檢查三竹股市是否執行中 |
@@ -117,11 +122,18 @@ Source Tree:
 | 原函式名 | 新縮短函式名 | 說明 |
 | :--- | :--- | :--- |
 | `ExportTimingConstants` | `ExportTiming` | 匯出流程時序常數 (寫死於程式) |
+| `BuildDropdownNavigationPlan` | `BuildDropdownNavPlan` | 建立自繪下拉清單的按鍵導航計畫 |
+| `SendDropdownKeyPulse` | `SendDropdownKeyPulse` | 以 KeyDown／KeyUp 與延遲送出單一導航鍵脈衝 |
+| `ExecuteDropdownNavigation` | `ExecuteDropdownNav` | 依計畫逐鍵執行下拉清單導航 |
 | `PopularRankingAssets` | `PopRankAssets` | 熱門排行匯出所需圖檔清單 |
-| `GetPopularRankingTotalItems` | `GetPopRankTotalItems` | 讀取 `[PopularRanking] TotalItems` (預設 25) |
+| `GetPopularRankingTotalItems` | `GetPopRankTotalItems` | 讀取 `[PopularRanking] TotalItems` (預設 44) |
 | `GetExportOutputDirectory` | `GetExportOutDir` | 讀取三竹 CSV 輸出目錄 `OutDir` |
 | `GetPopularRankingDestinationRoot` | `GetPopRankDstRoot` | 取得 `<專案>\熱門排行` 目的根目錄 |
-| `FindNewestCsvSince` | `FindNewCsv` | 尋找不早於指定時間的最新 CSV |
+| `FindChangedCsv` | `FindNewCsv` | 尋找相較基準快照新增或內容已變更的 CSV |
+| `CaptureCsvState` | `CaptureCsvState` | 建立匯出前 CSV 檔名與內容簽章快照 |
+| `GetCsvSignature` | `GetCsvSignature` | 計算 CSV 修改時間、大小與內容雜湊簽章 |
+| `StageExistingCsvFiles` | `StageExistingCsvs` | 批次前暫存 OUT 目錄既有 CSV，避開同名衝突 |
+| `FinalizeCsvStaging` | `FinalizeCsvStage` | 恢復未被取代的 CSV 並保留同名舊版備份 |
 | `IsFileReady` | `IsFileReady` | 檢查檔案是否已寫入完成 |
 | `WaitForNewCsv` | `WaitNewCsv` | 輪詢等待新 CSV 出現 |
 | `CopyToDateDirectory` | `CopyToDateDir` | 複製至 `YYYYMMDD` 子資料夾 (同名覆蓋) |
@@ -147,6 +159,7 @@ Source Tree:
 | :--- | :--- | :--- |
 | `RegisterHotkey` | `RegisterHk` | 註冊快捷鍵設定與日誌記錄輔助函式 |
 | `ShellMessage` | `ShellMsg` | ShellHook 監聽處理常式 |
+| `RunUiAction` | `RunUiAction` | 匯出期間阻擋其他互動式視窗操作 |
 | `MenuLaunchHandler` | `MenuLaunchHnd` | 托盤「啟動/切換 三竹股市」處理函式 |
 | `MenuToggleMenuBarHandler` | `MenuToggleBarHnd` | 托盤「切換選單列」處理函式 |
 | `MenuClickSecuritiesQuoteHandler` | `MenuSecQuoteHnd` | 托盤「證券行情」處理函式 |
@@ -155,20 +168,14 @@ Source Tree:
 | `MenuExportPopularRankingHandler` | `MenuPopRankExportHnd` | 托盤「匯出熱門排行」處理函式 |
 | `MenuExportAfterMarketRankingHandler` | `MenuAfterRankExportHnd` | 托盤「匯出盤後排行」處理函式 |
 | `MenuShowResolutionHandler` | `MenuShowResHnd` | 托盤「顯示解析度」處理函式 |
-| `HotkeyLaunchHandler` | `HkLaunchHnd` | 快捷鍵啟動處理函式 |
-| `HotkeyMenuBarHandler` | `HkMenuBarHnd` | 快捷鍵選單列處理函式 |
-| `HotkeySecuritiesQuoteHandler` | `HkSecQuoteHnd` | 快捷鍵證券行情處理函式 |
-| `HotkeyPopularRankingHandler` | `HkPopRankHnd` | 快捷鍵熱門排行處理函式 |
-| `HotkeyAfterMarketRankingHandler` | `HkAfterRankHnd` | 快捷鍵盤後排行處理函式 |
-| `HotkeyExportPopularRankingHandler` | `HkPopRankExportHnd` | 快捷鍵匯出熱門排行處理函式 |
-| `HotkeyExportAfterMarketRankingHandler` | `HkAfterRankExportHnd` | 快捷鍵匯出盤後排行處理函式 |
-
 
 ```
 `After Rank Export Spec.md`:
 
 ```md
 # 盤後排行全項目匯出：規格與設計說明書
+
+> 實機驗證狀態：2026-10-09 已完成 36 項完整托盤批次驗證。問題閉環記錄見 [LESSONS_LEARNED.md](LESSONS_LEARNED.md)。
 
 ## 1. 範圍與目標
 - 本規格定義針對三竹股市電腦版「證券行情」→「盤後排行」功能之全項目自動化匯出作業。
@@ -179,8 +186,8 @@ Source Tree:
 
 ## 2. 前置條件與外部環境
 1. **外部關聯程式攔截**：
-   - 系統關聯應用已配置指向 [`bypass.bat`](file:///d:/DJC/TEST/三竹/bypass.bat) 以快速關閉外部程序。
-   - 三竹在觸發「資料匯出」後仍可能非同步喚醒 Excel 或第三方應用奪取前台焦點；腳本在各子項目操作起點均防禦性調用 [`SwitchToAfterRankWin()`](file:///d:/DJC/TEST/三竹/lib/window_control.ahk) 確保三竹視窗取得前景控制權。
+   - 系統關聯應用已配置指向 [`bypass.bat`](bypass.bat) 以快速關閉外部程序。
+   - 三竹在觸發「資料匯出」後仍可能非同步喚醒 Excel 或第三方應用奪取前台焦點；腳本在各子項目操作起點均防禦性調用 [`SwitchToAfterRankWin()`](lib/window_control.ahk) 確保三竹視窗取得前景控制權。
 2. **輸出路徑**：
    - 三竹匯出原始 CSV 預設輸出至 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
 3. **二維分類項目結構**：
@@ -203,7 +210,8 @@ Source Tree:
 程式內建寫死之時序配置（避免非必要配置膨脹）：
 - `RefreshDelayMs` (1500 ms)：Enter 選取項目後等待介面資料刷新。
 - `DropOpenDelayMs` (300 ms)：點擊下拉箭頭後等待清單浮層展開渲染。
-- `KeyDelayMs` (30 ms)：方向鍵導航之按鍵間隔。
+- `KeyHoldMs` (40 ms)：每個導航鍵維持按下狀態的時間。
+- `KeyDelayMs` (60 ms)：每個獨立按鍵脈衝放開後的間隔，避免自繪清單漏接連續按鍵。
 - `TimeoutMs` (10000 ms)：輪詢 OUT 目錄取得新 CSV 檔案之逾時上限。
 - `PollMs` (200 ms)：輪詢檔案存在與讀取鎖定之檢查間隔。
 - `MaxRetries` (2 次)：單一項目失敗時之最多重試次數。
@@ -234,9 +242,9 @@ Source Tree:
   4. 等待 300 ms 浮層展開。
   5. 鍵盤導航歸位：發送 `{Home}` + 連續 5 次 `{PgUp}`，隨後發送 `{Down}` × `(itemNoR - 1)`，最後 `{Enter}` 確認選取。
   6. 滑鼠移至 `(10, 10)` 清除 Hover，等待 1500 ms 介面刷新。
-  7. 記錄觸發時間 `sinceTime := A_Now`。
+  7. 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
   8. `ClickExportBtn()` 點擊「資料匯出」按鈕（優先圖像搜尋 `資料匯出.png`，失敗降級採用 `settings.ini` 之 `[ExportButton]` 座標），點擊後立即移開滑鼠。
-  9. `WaitNewCsv(outDir, sinceTime)` 輪詢 OUT 目錄尋找新產生的 CSV 且確認檔案寫入完成（`IsFileReady`）。
+  9. `WaitNewCsv(outDir, baseline)` 尋找相較基準新增或內容已改變的 CSV，並以 `IsFileReady` 與連續兩次相同簽章確認寫入完成。
   10. `CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)`：複製覆蓋至 `<專案>\盤後排行\YYYYMMDD\<原始檔名>`。
 
 ### 3.5 批次全項目匯出 (`ExportAfterRankAll`)
@@ -245,6 +253,7 @@ Source Tree:
   - 檢驗主顯示器解析度（支援 1920x1080 與 2560x1440）與該解析度下之必備圖檔（`盤後下拉L.png`、`盤後下拉R.png`、`資料匯出.png`）。
   - 若解析度不符或圖檔缺失，記錄 WARN 日誌並中止（`aborted := true`）。
 - **日期目錄決定**：批次開始時決定一次 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用。
+- **既有 CSV 衝突隔離**：批次開始前暫存 OUT 目錄既有 CSV；結束時恢復未被取代的檔案，同名舊版保留於 `logs\out-backups\`，避免三竹拒絕覆寫後觸發同項重試。
 - **巢狀執行與失敗熔斷**：
   - 外迴圈走訪分類 `itemNoL := 1..TotalItemsL` (5)。
   - 若外層分類 `itemNoL` 選取失敗：實施**立即熔斷 (Circuit Breaking)**，跳過該分類底下的所有子項目，並將其全部子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單，避免級聯式的盲目重試。
@@ -252,6 +261,7 @@ Source Tree:
 - **摘要回報**：
   - 全程記錄於 `logs/app.log`。
   - 依 `showMsgBox` 決定是否彈出最終統計摘要（成功數 / 總數，失敗項目清單）。
+  - 同一時間僅允許一個熱門排行或盤後排行批次；執行期間按 `Esc` 可要求在安全檢查點中止。
 
 ---
 
@@ -263,8 +273,6 @@ ClickX_1920x1080 = 78
 ClickY_1920x1080 = 110
 ClickX_2560x1440 = 78
 ClickY_2560x1440 = 110
-ClickX = 78
-ClickY = 110
 TotalItemsL = 5
 TotalItemsR1 = 10
 TotalItemsR2 = 10
@@ -285,7 +293,7 @@ AfterRankExportHotkey =
 
 ## 5. 進入點整合 (`Mitake.ahk`)
 - **系統托盤選單 (Tray Menu)**：
-  - 加入「匯出盤後排行」（`A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())`）。
+  - 「匯出盤後排行」由 `MenuAfterRankExportHnd` 啟動批次匯出。
 - **快捷鍵表驅動註冊**：
   - 註冊項：`{cfg: "AfterRankExportHotkey", def: "", desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}`。
 
@@ -308,13 +316,66 @@ AfterRankExportHotkey =
      - 未帶參數時彈出互動式 `InputBox` 供使用者輸入。
 
 ```
+`LESSONS_LEARNED.md`:
+
+```md
+# 實機驗證 Lessons Learned
+
+## 2026-10-09：熱門排行與盤後排行完整匯出驗證
+
+驗證環境為 Windows 11、主顯示器 `2560x1440`、AutoHotkey v2。托盤的「切換至 熱門排行」、「切換至 盤後排行」、「匯出熱門排行」與「匯出盤後排行」均已完成實機驗證；熱門排行 44 項與盤後排行 36 項皆可完整執行。
+
+### 1. 展開自繪選單後，前景 HWND 不再是主視窗
+
+- **症狀**：第一層「證券行情」可成功點擊，但第二層「熱門排行／盤後排行」無法搜尋或點擊。
+- **證據**：`logs/app.log` 顯示第一層圖像辨識成功，隨即出現「目標視窗未在前景」並拒絕第二次操作。
+- **根因**：三竹展開自繪選單後，前景 HWND 會切換到同程序的無標題或同 RootOwner 浮層。只接受主視窗 HWND 的安全檢查會誤判此狀態。
+- **修正**：以 `GetSafeForegroundContext` 驗證目標本身或可信的同程序浮層；ImageSearch 的 Client 範圍與實體點擊座標必須以實際前景浮層為準。
+- **不可破壞的不變條件**：選單展開後不得再次 `WinActivate`／`WinMaximize` 主視窗，否則浮層會被關閉；不同程序或其他具名三竹子視窗仍必須拒絕。
+
+### 2. 自繪下拉清單會漏接過快的連續方向鍵
+
+- **症狀**：前兩項可選取，第 3 項起持續停在第 2 項。
+- **根因**：快速連續 `SendInput` 時，自繪清單只處理第一個 `{Down}`，後續按鍵遭忽略。
+- **修正**：以 `BuildDropdownNavPlan` 建立確定的導航序列，再由 `SendDropdownKeyPulse` 使用 `SendEvent` 分別送出 KeyDown、停留 40 ms、KeyUp 及間隔 60 ms。
+- **歸位策略**：熱門排行使用 5 次 `{PgUp}`；盤後排行使用 `{Home}` 加 5 次 `{PgUp}` 雙重保險，之後才送出 `(itemNo - 1)` 個獨立 `{Down}`。
+- **診斷要求**：每項操作需記錄 `PgUp×N`、`Down×N`，讓日誌可直接核對目標序號與實際導航計畫。
+
+### 3. OUT 目錄已有同名 CSV 時，三竹可能不重新寫入
+
+- **症狀**：選單已正確向下移動，但每個項目仍會被點擊匯出三次才進入下一項。
+- **證據**：每次點擊後均完整等待 10 秒，`WaitNewCsv` 找不到新增或變更檔案，隨後進入兩次重試。
+- **根因**：`USER\OUT` 已有同名 CSV 時，三竹可能只開啟既有檔案而不覆寫；這不是檔案時間精度問題，增加輪詢時間或重試次數無法解決。
+- **修正**：批次開始前由 `StageExistingCsvs` 暫存 OUT 頂層既有 CSV；結束或異常中止時由 `FinalizeCsvStage` 恢復未被取代的檔案。
+- **資料安全**：新匯出檔保留在 OUT；同名舊版不刪除，保留於 `logs\out-backups\`；無衝突舊檔自動恢復。
+
+## 維護準則
+
+1. 實機問題先依 `logs/app.log` 判斷失敗階段：視窗焦點、選單導航、匯出點擊、CSV 偵測不可混為同一類重試。
+2. 重試只處理暫時性失敗，不可用來遮蔽確定性的狀態衝突；例如同名檔存在必須先隔離，而不是重複點擊。
+3. 無頭測試驗證決策邏輯與檔案生命週期；真實 HWND、滑鼠、鍵盤與自繪 UI 行為仍須由獨立實機工具或托盤流程驗證。
+4. 任何涉及既有 CSV 的處理都必須可復原，不直接刪除使用者資料。
+5. 熱門排行與盤後排行共用相同底層導航、焦點與檔案隔離原語，修正其中一條流程時必須同步回歸另一條流程。
+
+## 回歸保護
+
+- `Test_TrustedForegroundMeta`：驗證同 RootOwner／同程序無標題浮層可操作，其他程序與具名子視窗必須拒絕。
+- `Test_DropdownNavigationPlan`：驗證第 N 項確實產生 `N-1` 個獨立 `{Down}`，並保留熱門與盤後排行各自的歸位策略。
+- `Test_CsvStagingAvoidsExistingNameConflict`：驗證既有 CSV 可暫存、無衝突檔可恢復、同名舊版可保留且新檔不被覆蓋。
+- 2026-10-09 無頭回歸結果：`136 Total, 136 Passed, 0 Failed`；實機驗證補足背景 Session 無法測試的 HWND、滑鼠、鍵盤及自繪 UI 行為。
+
+## 已知後續工作
+
+- 三竹每匯出一個 CSV 仍可能另外呼叫 Excel。後續需依 [TODO.md](TODO.md) 實作「只關閉本批次新增 Excel」的安全清理流程，不得影響批次開始前既有的 Excel 與活頁簿。
+
+```
 `Mitake.ahk`:
 
 ```ahk
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
-; 視窗標題採部分比對，且僅操作目前可見的視窗
+; 通用 WinTitle 維持部分比對；三竹相關視窗一律由 FindMitakeWin 進行程序與標題精確匹配
 SetTitleMatchMode(2)
 DetectHiddenWindows(false)
 
@@ -328,12 +389,12 @@ A_TrayMenu.Add() ; 分隔線
 A_TrayMenu.Add("啟動/切換 三竹股市", MenuLaunchHnd)
 A_TrayMenu.Add("切換至 熱門排行", MenuPopRankHnd)
 A_TrayMenu.Add("切換至 盤後排行", MenuAfterRankHnd)
-A_TrayMenu.Add("匯出熱門排行", (*) => ExportPopRankAll())
-A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())
+A_TrayMenu.Add("匯出熱門排行", MenuPopRankExportHnd)
+A_TrayMenu.Add("匯出盤後排行", MenuAfterRankExportHnd)
 A_TrayMenu.Add("顯示系統解析度", MenuShowResHnd)
 A_TrayMenu.Default := "啟動/切換 三竹股市"
 
-; 註冊 ShellHook 監聽視窗切換與焦點事件，自動最大化標題非空白的三竹股市視窗
+; 註冊 ShellHook 監聽視窗切換與焦點事件，只自動最大化精確識別的三竹股市視窗
 DllCall("RegisterShellHookWindow", "Ptr", A_ScriptHwnd)
 OnMessage(DllCall("RegisterWindowMessage", "Str", "SHELLHOOK"), ShellMsg)
 
@@ -344,12 +405,24 @@ ShellMsg(wParam, lParam, *) {
             proc := WinGetProcessName(lParam)
             winTitle := WinGetTitle(lParam)
             procCfg := GetCfg("App", "ProcessName", "三竹股市.exe")
-            if ShouldMaximizeMitakeWin(proc, winTitle, procCfg) {
+            if ShouldMaximizeMitakeWin(proc, winTitle, procCfg) && WinGetMinMax(lParam) != 1 {
                 WinMaximize(lParam)
             }
         }
     }
 }
+
+RunUiAction(desc, handler) {
+    if IsExportRunActive() {
+        LogMsg(Format("忽略「{1}」：目前正在執行匯出作業", desc), "WARN")
+        return false
+    }
+    return handler.Call()
+}
+
+#HotIf IsExportRunActive()
+$Esc:: RequestExportCancel()
+#HotIf
 
 ; 註冊快捷鍵輔助函式
 RegisterHk(cfgKey, defKey, desc, handler) {
@@ -366,11 +439,11 @@ RegisterHk(cfgKey, defKey, desc, handler) {
 
 ; 快捷鍵與功能對應表
 hkDefs := [
-    {cfg: "LaunchHotkey",             def: "^!m", desc: "啟動",     hnd: (*) => LaunchMitake()},
-    {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: (*) => ToggleMenuBar()},
-    {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: (*) => ClickSecQuoteMenu()},
-    {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: (*) => SwitchToPopRankWin()},
-    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: (*) => SwitchToAfterRankWin()},
+    {cfg: "LaunchHotkey",             def: "^!m", desc: "啟動",     hnd: MenuLaunchHnd},
+    {cfg: "MenuBarHotkey",            def: "^!b", desc: "選單列",   hnd: MenuToggleBarHnd},
+    {cfg: "SecuritiesQuoteHotkey",    def: "",    desc: "證券行情", hnd: MenuSecQuoteHnd},
+    {cfg: "PopularRankingHotkey",     def: "",    desc: "熱門排行", hnd: MenuPopRankHnd},
+    {cfg: "AfterMarketRankingHotkey", def: "",    desc: "盤後排行", hnd: MenuAfterRankHnd},
     {cfg: "PopRankExportHotkey",      def: "",    desc: "匯出熱門排行", hnd: (*) => ExportPopRankAll()},
     {cfg: "AfterRankExportHotkey",    def: "",    desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}
 ]
@@ -386,29 +459,126 @@ LogMsg(Format("三竹股市 AutoHotkey 控制腳本載入完成。主顯示器�
 LaunchMitake()
 
 ; 托盤選單處理函式 (保持命名兼容性)
-MenuLaunchHnd(*)   => LaunchMitake()
-MenuToggleBarHnd(*) => ToggleMenuBar()
-MenuSecQuoteHnd(*)  => ClickSecQuoteMenu()
-MenuPopRankHnd(*)   => SwitchToPopRankWin()
-MenuAfterRankHnd(*)  => SwitchToAfterRankWin()
+MenuLaunchHnd(*)   => RunUiAction("啟動/切換 三竹股市", LaunchMitake)
+MenuToggleBarHnd(*) => RunUiAction("切換選單列", ToggleMenuBar)
+MenuSecQuoteHnd(*)  => RunUiAction("證券行情", ClickSecQuoteMenu)
+MenuPopRankHnd(*)   => RunUiAction("熱門排行", SwitchToPopRankWin)
+MenuAfterRankHnd(*)  => RunUiAction("盤後排行", SwitchToAfterRankWin)
 MenuAfterRankExportHnd(*) => ExportAfterRankAll()
 MenuPopRankExportHnd(*)   => ExportPopRankAll()
 
 MenuShowResHnd(*) {
+    if IsExportRunActive() {
+        LogMsg("匯出作業進行中，暫不顯示解析度視窗", "WARN")
+        return false
+    }
     displays := GetAllRes()
     info := ""
     for idx, d in displays {
         info .= Format("顯示器 #{1}: {2} ({3}x{4}) {5}`n", idx, d.str, d.width, d.height, d.isPrimary ? "[主顯示器]" : "")
     }
     MsgBox(info, "系統顯示器解析度資訊", "Iconi")
+    return true
 }
 
 ```
 `README.md`:
 
 ```md
-# Mitake
-使用AutoHotkey (AHK v2)對「三竹股市電腦版」自動化執行匯出資料
+# Mitake 三竹股市自動化
+
+使用 AutoHotkey v2 操作「三竹股市電腦版」，自動開啟／切換視窗，並批次匯出「熱門排行」與「盤後排行」CSV。
+
+## 環境需求
+
+- Windows 11
+- AutoHotkey v2：`C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe`
+- 三竹股市電腦版：預設 `D:\Program Files\MitakeGU\三竹股市.exe`
+- 主顯示器解析度必須為 `1920x1080` 或 `2560x1440`
+
+## 快速開始
+
+1. 確認 [config/settings.ini](config/settings.ini) 中的程式路徑、匯出目錄與解析度座標。
+2. 執行 `Mitake.ahk`。
+3. 由系統托盤選擇「匯出熱門排行」或「匯出盤後排行」。
+4. 匯出執行期間可按 `Esc` 要求安全中止；同一時間只允許一個匯出作業。
+5. 結果會寫入 `熱門排行\YYYYMMDD\` 或 `盤後排行\YYYYMMDD\`，執行紀錄位於 `logs\app.log`。
+
+批次開始前，腳本會暫存三竹 `USER\OUT` 中既有的 CSV，避免三竹因同名檔已存在而拒絕重新輸出。未被本次輸出取代的檔案會在結束時恢復；同名舊版會保留在 `logs\out-backups\` 供復原。
+
+> 執行期間請勿操作三竹視窗、滑鼠或鍵盤。腳本不執行下單，但會實際控制桌面與點擊三竹介面。
+
+## 測試
+
+```powershell
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$p = Start-Process -FilePath "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" `
+  -ArgumentList '/ErrorStdOut', 'tests\run_tests.ahk' `
+  -NoNewWindow -PassThru -Wait
+exit $p.ExitCode
+```
+
+`tests/run_tests.ahk` 僅執行無頭單元測試，不會點擊真實桌面。需要實機驗證時，另行執行：
+
+- `tests/test_pop_rank_export.ahk`
+- `tests/test_after_rank_export.ahk`
+- `tests/test_coords_click.ahk`
+- `tests/diagnose_export_btn.ahk`
+
+## 後續工作
+
+- [ ] 匯出每個新 CSV 後，安全關閉本批次由三竹新開啟的 Excel；不得關閉使用者原本已開啟的 Excel。詳見 [TODO.md](TODO.md)。
+
+## 文件
+
+- [熱門排行匯出規格](pop_rank_export_spec.md)
+- [盤後排行匯出規格](After%20Rank%20Export%20Spec.md)
+- [實機驗證 Lessons Learned](LESSONS_LEARNED.md)
+- [後續工作](TODO.md)
+- [命名縮寫表](ABBREVIATIONS.md)
+- [開發與自動化注意事項](agents.md)
+
+```
+`TODO.md`:
+
+```md
+# 後續工作（TODO）
+
+## P1：匯出後關閉三竹新開啟的 Excel
+
+### 背景
+
+執行托盤「匯出熱門排行」或「匯出盤後排行」時，三竹每匯出一個 CSV 都可能呼叫一個新的 Microsoft Excel 視窗／程序。完整批次結束後會累積大量 Excel，干擾前景焦點並消耗系統資源。
+
+### 目標
+
+在熱門排行與盤後排行批次中，每次匯出完成後關閉該次由三竹新開啟的 Excel；批次結束或中止時，再清理本批次尚未關閉的新增 Excel。
+
+### 安全邊界
+
+- 批次開始前記錄既有 `EXCEL.EXE` PID 與可識別的頂層視窗，建立保護基準。
+- 只處理批次開始後新增、且可合理歸因於本次三竹匯出的 Excel。
+- 不得關閉批次開始前已存在的 Excel，也不得影響使用者原本開啟的活頁簿。
+- 優先採用正常關閉視窗；只有在確認屬於本批次、正常關閉逾時且已記錄警告時，才考慮終止程序。
+- 清理失敗不得中斷 CSV 歸檔；需記錄 PID、視窗標題、處理結果與失敗原因。
+- 必須同時涵蓋正常完成、使用者按 `Esc` 中止、例外與單項重試等結束路徑。
+
+### 建議設計
+
+1. `CaptureExcelBaseline()`：記錄批次開始前的 Excel PID／HWND。
+2. `FindNewExportExcelWindows(baseline)`：列出相較基準新增的 Excel 視窗，並排除受保護 PID。
+3. `CloseNewExportExcels(baseline, timeoutMs)`：先送出正常關閉，輪詢確認；必要時依安全條件進行後續處理。
+4. 在單項 CSV 已確認並完成 `CopyToDateDir` 後執行一次清理。
+5. 在 `ExportPopRankAll`／`ExportAfterRankAll` 的 `finally` 區塊再次執行兜底清理。
+
+### 驗收條件
+
+- 熱門排行 44 項與盤後排行 36 項完整匯出後，不留下本批次新開啟的 Excel。
+- 批次開始前已開啟的 Excel 與活頁簿保持開啟且內容不受影響。
+- 中途按 `Esc` 或發生匯出錯誤時，仍會清理本批次新增的 Excel。
+- Excel 關閉失敗時，匯出結果不被誤判為失敗，且 `logs/app.log` 有可追查紀錄。
+- 無頭測試至少覆蓋 PID 基準差集、既有 PID 保護、重複清理冪等性及 finally 清理路徑；另以實機工具驗證真正的 Excel 視窗生命週期。
+
 
 ```
 `agents.md`:
@@ -456,6 +626,8 @@ MenuShowResHnd(*) {
 ├── README.md                 # 專案初始化與說明文件
 ├── AGENTS.md                 # 專案 AI Agent 指引與規範文件
 ├── ABBREVIATIONS.md          # 變數與函式命名縮寫對照表
+├── LESSONS_LEARNED.md        # 實機驗證問題、根因、修正與維護準則
+├── TODO.md                   # 後續功能、風險邊界與驗收條件
 ├── pop_rank_export_spec.md   # 熱門排行匯出規格與設計共識文件
 ├── After Rank Export Spec.md # 盤後排行匯出規格與設計說明書
 ├── prompt.md                 # AI 提詞與專案程式碼快照 (code2prompt 產生)
@@ -494,6 +666,7 @@ MenuShowResHnd(*) {
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
 - [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
 - [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
+- [ ] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
 
 ---
 
@@ -534,7 +707,7 @@ MenuShowResHnd(*) {
 
 5. **跨模組重構之單一真實來源與命名同步 (SSOT & Identifier Sync)**：
    - AHK v2 於載入期進行靜態檢查。當多個檔案彼此 `#Include`，若將通用函式（如 `GetRootDir`）下沉至共用底層模組（`lib/utils.ahk`）時，必須徹底清理高層模組的原有定義，否則編譯載入期會直接引發致命錯誤 `Duplicate function definition`。
-   - 跨模組重構識別碼時，務必建立專案級縮寫對照表（[ABBREVIATIONS.md](file:///d:/DJC/TEST/%E4%B8%89%E7%AB%B9/ABBREVIATIONS.md)），底層模組、主程式與測試集同步更新，並以 `run_tests.ahk` 作為全域回歸閘門驗證 0 錯誤。
+   - 跨模組重構識別碼時，務必建立專案級縮寫對照表（[ABBREVIATIONS.md](ABBREVIATIONS.md)），底層模組、主程式與測試集同步更新，並以 `run_tests.ahk` 作為全域回歸閘門驗證 0 錯誤。
 6. **一級函式與表驅動註冊模式 (Table-Driven Registration)**：
    - 傳統寫法常為每個熱鍵或托盤菜單建立單行轉發函式（Proxy handlers），造成程式碼膨脹。
    - 解決方案：善用 AHK v2 一級函式與匿名胖箭頭語法（`(*) => Handler()`），搭配配置物件陣列（`[{cfg: ..., def: ..., hnd: ...}]`）進行表驅動迭代註冊，大幅縮減頂層膠水代碼。
@@ -561,7 +734,7 @@ MenuShowResHnd(*) {
    - **DPI 虛擬化避坑**：透過第三方環境（如 .NET）偵測螢幕解析度時，若啟用了系統 DPI 縮放會回傳虛擬化後的邏輯尺寸。解析度偵測一律應依賴 AHK v2 原生 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界。
 13. **自繪清單鍵盤導航：`Home` 失效時的 `PageUp` 批次歸位模式**：
    - **現象**：三竹等自訂自繪下拉選單通常未實作標準 Win32 的 `{Home}` 跳至首項行為，發送 `{Home}` 鍵完全被忽略。當展開選單時游標停留在前次選定項目，直接執行 `(ItemNo - 1)` 次 `{Down}` 會造成游標累積位移錯亂，執行數十項時反覆停滯在最末項。
-   - **解決方案**：改用多次（如 5 次）`Send("{PgUp}")` 向上翻頁作為首項歸位機制，百分之百保證游標穩定回到第 1 項，再向下按 `{Down}` 遞增定位（實作時可採 `Send("{Home}")` 配合批次 `Send("{PgUp}")` 雙重保險，兼顧 Win32 規格語意與自繪缺陷防護）。
+   - **解決方案**：改用多次（如 5 次）`{PgUp}` 向上翻頁作為首項歸位機制，再向下按 `{Down}` 遞增定位（盤後排行可加 `{Home}` 作雙重保險）。每個導航鍵必須透過 `SendEvent` 分別送出 KeyDown、短暫停留、KeyUp 與按鍵間隔；不可用過快的連續 `SendInput`，否則自繪清單可能只接到第一個 `{Down}`，使第 3 項之後持續停在第 2 項。
 14. **滑鼠停懸 (Hover) 狀態干擾與純淨影像裁切準則 (Tight Cropping)**：
    - **Hover 色偏陷阱**：滑鼠點擊下拉箭頭或按鈕後若游標停留在原地，元件會進入 Hover 高亮狀態（底色、邊框或反鋸齒陰影變更），導致後續搜尋原始未停懸圖檔時引發連鎖式匹配失敗。
    - **防護措施**：點擊任何按鈕或確認選取後，立即將游標移至視窗角落空白區（如 `(10, 10)`）解除 Hover 狀態。
@@ -576,20 +749,26 @@ MenuShowResHnd(*) {
 17. **二維階層批次之失敗級聯隔離與熔斷 (Hierarchical Failure Cascading & Circuit Breaking)**：
    - **現象**：盤後排行等功能屬於 $L \times R$ 的巢狀階層結構（5 個分類 $\times$ 4~10 個子項目，共 36 項）。若外層分類 $L$ 選取失敗（如動畫渲染延遲或自繪下拉未命中），若未進行架構隔離，內層迴圈仍會盲目執行該分類底下的所有子項目，導致每個子項目均經歷完整的重試與逾時輪詢，造成長達數分鐘的無效阻塞。
    - **解決方案**：外層分類 $L$ 在重試耗盡失敗時應實施立即熔斷（Circuit Breaking），跳過內層迴圈，並將所屬預期子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單後繼續下一分類，兼顧批次處理效能與統計報表精確度。
+18. **匯出 OUT 目錄同名檔衝突隔離**：
+   - 三竹遇到 OUT 目錄已有同名 CSV 時，可能只開啟既有檔而不重新寫入。若以檔案變更作為成功判定，流程會逾時並重複點擊同一項目。
+   - 批次開始前必須以 `StageExistingCsvs` 將頂層既有 CSV 暫存至可復原備份；結束或異常時以 `FinalizeCsvStage` 恢復未被取代的檔案，同名舊版保留備份，不可直接刪除。
 
 ### 五、 測試架構與實機驗證工具隔離 (Test Architecture & Tooling)
 
-18. **資料驅動測試套件重構 (Data-Driven Test Suite Pattern)**：
+19. **資料驅動測試套件重構 (Data-Driven Test Suite Pattern)**：
    - 多解析度、多資產與多座標的驗證若逐條複製貼上斷言，會導致測試代碼膨脹且難以擴展。
    - 解決方案：改採資料驅動測試結構，以案例陣列（`cases := [{...}]`）配合迴圈動態檢驗，不僅提升測試可讀性與擴展性，也能輸出更具語意化的動態失敗除錯訊息。
-19. **無頭自動化測試與手動實機驗證工具之架構隔離**：
+20. **無頭自動化測試與手動實機驗證工具之架構隔離**：
    - **無頭自動化測試**：`tests/run_tests.ahk` 作為持續整合與版本回歸閘門，必須保持純淨、快速且無阻斷式彈窗；業務函式應提供 UI 抑制參數（`showMsgBox := false`）。
    - **手動實機驗證工具**：涉及真實桌面焦點切換、滑鼠軌跡與確認彈窗的實機校正需求，應獨立建置專用腳本（`tests/test_coords_click.ahk`），搭配平滑游標移動（`MouseMove(x, y, 10)`）與 `ToolTip` 浮動標籤提示目標名稱與落點座標，兼顧除錯直觀性而不干擾全域測試。
-20. **背景 Session 與互動式桌面隔離限制 (Session Isolation & UIPI)**：
+21. **背景 Session 與互動式桌面隔離限制 (Session Isolation & UIPI)**：
    - 命令列終端（PowerShell / 背景 Task）受限於 Windows Session 隔離機制，無法直接枚舉或控制真實使用者互動桌面上的 GUI 視窗（`WinGetList` / `WinActive` 會回傳 0）。
    - 單元測試焦點切換應以 `WinExist` 及函式回傳值驗證，避免依賴無桌面環境下的 `WinActive`；定位疑難問題時，以實體執行日誌 `logs/app.log` 留下的真實軌跡為準。
 
+### 六、 實機驗證結論
 
+- 2026-10-09 已完成熱門排行 44 項與盤後排行 36 項的完整托盤批次驗證。
+- 自繪選單前景 HWND、導航按鍵節流及 OUT 同名 CSV 衝突的完整症狀、證據、根因與修正紀錄，統一維護於 [LESSONS_LEARNED.md](LESSONS_LEARNED.md)。
 
 ---
 
@@ -597,7 +776,6 @@ MenuShowResHnd(*) {
 
 1. 本專案僅供個人自動化操作輔助與技術研究使用。
 2. 涉及股票看盤與交易相關操作時，請務必謹慎確認腳本邏輯，避免誤觸下單或操作錯誤。
-
 
 ```
 `bypass.bat`:
@@ -638,24 +816,18 @@ ClickX_1920x1080 = 35
 ClickY_1920x1080 = 45
 ClickX_2560x1440 = 35
 ClickY_2560x1440 = 45
-ClickX = 35
-ClickY = 45
 
 [SecuritiesQuote]
 ClickX_1920x1080 = 337
 ClickY_1920x1080 = 15
 ClickX_2560x1440 = 337
 ClickY_2560x1440 = 14
-ClickX = 337
-ClickY = 15
 
 [PopularRanking]
 ClickX_1920x1080 = 77
 ClickY_1920x1080 = 80
 ClickX_2560x1440 = 78
 ClickY_2560x1440 = 80
-ClickX = 77
-ClickY = 80
 TotalItems = 44
 OutDir = D:\Program Files\MitakeGU\USER\OUT
 
@@ -664,8 +836,6 @@ ClickX_1920x1080 = 78
 ClickY_1920x1080 = 110
 ClickX_2560x1440 = 78
 ClickY_2560x1440 = 110
-ClickX = 78
-ClickY = 110
 TotalItemsL = 5
 TotalItemsR1 = 10
 TotalItemsR2 = 10
@@ -694,10 +864,89 @@ ClickY_1920x1080 = 50
 class ExportTiming {
     static RefreshDelayMs := 1500   ; Enter 選取項目後等待資料刷新
     static DropOpenDelayMs := 300   ; 點擊下拉箭頭後等待清單展開
-    static KeyDelayMs := 30         ; 方向鍵之間的間隔
+    static KeyHoldMs := 40          ; 自繪清單需辨識完整的按下／放開事件
+    static KeyDelayMs := 60         ; 每次按鍵脈衝放開後的間隔
     static TimeoutMs := 10000       ; 輪詢匯出 CSV 之逾時
     static PollMs := 200            ; 輪詢間隔
     static MaxRetries := 2          ; 單一項目失敗後最多重試次數
+}
+
+class ExportRunState {
+    static Busy := false
+    static CancelRequested := false
+    static Kind := ""
+}
+
+/**
+ * 建立自繪下拉清單的鍵盤導航計畫。
+ * 每個 Down 都保留為獨立脈衝，避免 SendInput 合併或三竹忽略連續快速按鍵。
+ */
+BuildDropdownNavPlan(itemNo, includeHome := false) {
+    plan := []
+    if includeHome
+        plan.Push("Home")
+    Loop 5
+        plan.Push("PgUp")
+    Loop itemNo - 1
+        plan.Push("Down")
+    plan.Push("Enter")
+    return plan
+}
+
+SendDropdownKeyPulse(keyName) {
+    SendEvent("{" keyName " down}")
+    Sleep(ExportTiming.KeyHoldMs)
+    SendEvent("{" keyName " up}")
+    Sleep(ExportTiming.KeyDelayMs)
+}
+
+ExecuteDropdownNav(itemNo, includeHome := false) {
+    plan := BuildDropdownNavPlan(itemNo, includeHome)
+    for keyName in plan {
+        if IsExportCancelled()
+            return false
+        SendDropdownKeyPulse(keyName)
+    }
+    return true
+}
+
+IsExportRunActive() => ExportRunState.Busy
+IsExportCancelled() => ExportRunState.CancelRequested
+
+SetExportUiEnabled(enabled) {
+    for itemName in ["啟動/切換 三竹股市", "切換至 熱門排行", "切換至 盤後排行", "匯出熱門排行", "匯出盤後排行"] {
+        try enabled ? A_TrayMenu.Enable(itemName) : A_TrayMenu.Disable(itemName)
+    }
+}
+
+BeginExportRun(kind, showMsgBox := true) {
+    if ExportRunState.Busy {
+        msg := Format("無法啟動{1}：目前正在執行{2}", kind, ExportRunState.Kind)
+        LogMsg(msg, "WARN")
+        if showMsgBox
+            MsgBox(msg, "匯出作業進行中", "Icon!")
+        return false
+    }
+    ExportRunState.Busy := true
+    ExportRunState.CancelRequested := false
+    ExportRunState.Kind := kind
+    SetExportUiEnabled(false)
+    return true
+}
+
+RequestExportCancel() {
+    if !ExportRunState.Busy
+        return false
+    ExportRunState.CancelRequested := true
+    LogMsg(Format("使用者要求中止{1}", ExportRunState.Kind), "WARN")
+    return true
+}
+
+EndExportRun() {
+    SetExportUiEnabled(true)
+    ExportRunState.Busy := false
+    ExportRunState.CancelRequested := false
+    ExportRunState.Kind := ""
 }
 
 /**
@@ -732,20 +981,137 @@ GetPopRankDstRoot() {
 }
 
 /**
- * 在輸出目錄中尋找修改時間不早於 sinceTime 的最新 CSV
+ * 取得 CSV 的修改時間、大小與內容雜湊簽章
+ * @param {String} path CSV 完整路徑
+ * @returns {String} 簽章，讀取失敗則回傳空字串
+ */
+GetCsvSignature(path) {
+    try {
+        raw := FileRead(path, "RAW")
+        hash := 2166136261
+        Loop raw.Size {
+            hash := ((hash ^ NumGet(raw, A_Index - 1, "UChar")) * 16777619) & 0xFFFFFFFF
+        }
+        return FileGetTime(path, "M") "|" raw.Size "|" hash
+    } catch {
+        return ""
+    }
+}
+
+CaptureCsvState(outDir) {
+    state := Map()
+    state.CaseSense := false
+    if !DirExist(outDir)
+        return state
+    Loop Files, outDir "\*.csv" {
+        sig := GetCsvSignature(A_LoopFileFullPath)
+        if (sig != "")
+            state[A_LoopFileFullPath] := sig
+    }
+    return state
+}
+
+/**
+ * 批次前將 OUT 目錄既有 CSV 移至可復原備份，避免三竹遇到同名檔時不重新寫入。
+ * @returns {Object} {outDir, stageDir, names}
+ */
+StageExistingCsvs(outDir, kind, backupRoot := "") {
+    state := {outDir: outDir, stageDir: "", names: []}
+    if !DirExist(outDir)
+        return state
+
+    existing := []
+    Loop Files, outDir "\*.csv"
+        existing.Push(A_LoopFileFullPath)
+    if (existing.Length == 0)
+        return state
+
+    if (backupRoot == "")
+        backupRoot := GetRootDir() "\logs\out-backups"
+    safeKind := RegExReplace(kind, "[\\/:*?`"<>|]", "_")
+    stageDir := backupRoot "\" FormatTime(A_Now, "yyyyMMdd_HHmmss") "_" safeKind "_" DllCall("GetCurrentProcessId") "_" A_TickCount
+    DirCreate(stageDir)
+    state.stageDir := stageDir
+
+    try {
+        for src in existing {
+            SplitPath(src, &fileName)
+            FileMove(src, stageDir "\" fileName)
+            state.names.Push(fileName)
+        }
+    } catch as err {
+        FinalizeCsvStage(state)
+        throw Error(Format("暫存既有 CSV 失敗：{1}", err.Message))
+    }
+
+    LogMsg(Format("{1}：已暫存 OUT 目錄既有 CSV 共 {2} 個至 {3}", kind, state.names.Length, stageDir), "INFO")
+    return state
+}
+
+/**
+ * 批次結束後恢復未被新輸出取代的 CSV；同名舊檔保留於備份目錄。
+ * @returns {Integer} 保留於備份目錄的同名舊檔數量
+ */
+FinalizeCsvStage(state) {
+    if !IsObject(state) || state.stageDir == "" || !DirExist(state.stageDir)
+        return 0
+
+    conflicts := 0
+    for fileName in state.names {
+        staged := state.stageDir "\" fileName
+        if !FileExist(staged)
+            continue
+        target := state.outDir "\" fileName
+        if FileExist(target) {
+            conflicts++
+            continue
+        }
+        try FileMove(staged, target)
+        catch as err {
+            conflicts++
+            LogMsg(Format("恢復暫存 CSV 失敗 ({1} → {2}): {3}", staged, target, err.Message), "ERROR")
+        }
+    }
+
+    hasRemaining := false
+    Loop Files, state.stageDir "\*.csv" {
+        hasRemaining := true
+        break
+    }
+    if !hasRemaining {
+        try DirDelete(state.stageDir)
+    } else {
+        LogMsg(Format("同名舊 CSV 已保留於備份目錄：{1}", state.stageDir), "INFO")
+    }
+    return conflicts
+}
+
+/**
+ * 尋找相較於基準快照新增或內容已變更的最新 CSV
+ * 相容舊測試與工具傳入 YYYYMMDDHH24MISS 時間字串。
  * @param {String} outDir 輸出目錄
- * @param {String} sinceTime 起始時間 (YYYYMMDDHH24MISS)
+ * @param {Map|String} sinceOrBaseline CSV 基準快照或起始時間
  * @returns {String} CSV 完整路徑，找不到則回傳空字串
  */
-FindNewCsv(outDir, sinceTime) {
+FindNewCsv(outDir, sinceOrBaseline) {
     if !DirExist(outDir)
         return ""
-    newest := "", newestTime := ""
+    useBaseline := Type(sinceOrBaseline) == "Map"
+    newest := "", newestTime := "", newestCreated := ""
     Loop Files, outDir "\*.csv" {
         t := A_LoopFileTimeModified
-        if (t >= sinceTime && (newest == "" || t > newestTime)) {
+        created := A_LoopFileTimeCreated
+        isCandidate := false
+        if useBaseline {
+            sig := GetCsvSignature(A_LoopFileFullPath)
+            isCandidate := sig != "" && (!sinceOrBaseline.Has(A_LoopFileFullPath) || sinceOrBaseline[A_LoopFileFullPath] != sig)
+        } else {
+            isCandidate := t >= sinceOrBaseline
+        }
+        if (isCandidate && (newest == "" || t > newestTime || (t == newestTime && created > newestCreated))) {
             newest := A_LoopFileFullPath
             newestTime := t
+            newestCreated := created
         }
     }
     return newest
@@ -771,17 +1137,30 @@ IsFileReady(path) {
 /**
  * 輪詢輸出目錄直到出現新的 CSV 且寫入完成，或逾時
  * @param {String} outDir 輸出目錄
- * @param {String} sinceTime 起始時間 (YYYYMMDDHH24MISS)
+ * @param {Map|String} sinceOrBaseline CSV 基準快照或相容用起始時間
  * @param {Integer} timeoutMs 逾時毫秒
  * @param {Integer} pollMs 輪詢間隔毫秒
  * @returns {String} CSV 完整路徑，逾時則回傳空字串
  */
-WaitNewCsv(outDir, sinceTime, timeoutMs := 10000, pollMs := 200) {
+WaitNewCsv(outDir, sinceOrBaseline, timeoutMs := 10000, pollMs := 200) {
     deadline := A_TickCount + timeoutMs
+    lastPath := "", lastSig := "", stableCount := 0
     Loop {
-        csv := FindNewCsv(outDir, sinceTime)
-        if (csv != "" && IsFileReady(csv))
-            return csv
+        if IsExportCancelled()
+            return ""
+        csv := FindNewCsv(outDir, sinceOrBaseline)
+        if (csv != "" && IsFileReady(csv)) {
+            sig := GetCsvSignature(csv)
+            if (csv == lastPath && sig != "" && sig == lastSig) {
+                stableCount++
+                if (stableCount >= 2)
+                    return csv
+            } else {
+                lastPath := csv
+                lastSig := sig
+                stableCount := 1
+            }
+        }
         if (A_TickCount >= deadline)
             return ""
         Sleep(pollMs)
@@ -863,11 +1242,12 @@ ClickExportBtn(winTitle, res) {
         return true
 
     coords := GetResCoords("ExportButton", 0, 0, res.str)
-    if (coords.x == 0 && coords.y == 0) {
+    if (coords.x <= 0 || coords.y <= 0) {
         LogMsg(Format("資料匯出：圖像未比對到且 [ExportButton] 未設定 {1} 座標", res.str), "WARN")
         return false
     }
-    ClickPoint(coords.x, coords.y, winTitle, false)
+    if !ClickPoint(coords.x, coords.y, winTitle, false)
+        return false
     LogMsg(Format("資料匯出：圖像未比對到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, coords.x, coords.y), "WARN")
     return true
 }
@@ -901,17 +1281,10 @@ TryExportPopRankItem(itemNo, dateStr) {
     }
     Sleep(ExportTiming.DropOpenDelayMs)
 
-    ; 3~5. PageUp × 5 次回首項 → Down × (itemNo-1) → Enter
-    Loop 5 {
-        Send("{PgUp}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Loop itemNo - 1 {
-        Send("{Down}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Sleep(ExportTiming.KeyDelayMs)
-    Send("{Enter}")
+    ; 3~5. PageUp × 5 次回首項 → 獨立 Down 脈衝 × (itemNo-1) → Enter
+    LogMsg(Format("熱門排行 #{1}：下拉導航 PgUp×5、Down×{2}", itemNo, itemNo - 1), "INFO")
+    if !ExecuteDropdownNav(itemNo)
+        return ""
 
     ; 選取後立即移開滑鼠，避免游標停在按鈕上方造成 Hover 影響或干擾畫面
     oldMouse := CoordMode("Mouse", "Client")
@@ -922,7 +1295,8 @@ TryExportPopRankItem(itemNo, dateStr) {
     Sleep(ExportTiming.RefreshDelayMs)
 
     ; 7. 點擊資料匯出 (記錄觸發時間以辨識新產生的 CSV；圖像辨識失敗時退回 settings.ini 座標)
-    sinceTime := A_Now
+    outDir := GetExportOutDir("PopularRanking")
+    baseline := CaptureCsvState(outDir)
     if !ClickExportBtn(winTitle, res) {
         LogMsg(Format("熱門排行 #{1}：找不到資料匯出按鈕", itemNo), "WARN")
         ResetPopRankState(winTitle)
@@ -935,9 +1309,10 @@ TryExportPopRankItem(itemNo, dateStr) {
     CoordMode("Mouse", oldMouse)
 
     ; 8. 輪詢輸出目錄取得新 CSV
-    outDir := GetExportOutDir("PopularRanking")
-    csv := WaitNewCsv(outDir, sinceTime, ExportTiming.TimeoutMs, ExportTiming.PollMs)
+    csv := WaitNewCsv(outDir, baseline, ExportTiming.TimeoutMs, ExportTiming.PollMs)
     if (csv == "") {
+        if IsExportCancelled()
+            return ""
         LogMsg(Format("熱門排行 #{1}：{2} 毫秒內未在 {3} 偵測到新 CSV", itemNo, ExportTiming.TimeoutMs, outDir), "WARN")
         ResetPopRankState(winTitle)
         return ""
@@ -957,7 +1332,8 @@ TryExportPopRankItem(itemNo, dateStr) {
  * @returns {Boolean} 是否成功
  */
 ExportPopRankItem(itemNo, dateStr := "") {
-    if (!IsInteger(itemNo) || itemNo < 1) {
+    total := GetPopRankTotalItems()
+    if (!IsInteger(itemNo) || itemNo < 1 || itemNo > total) {
         LogMsg(Format("熱門排行匯出：項目序號無效 ({1})", itemNo), "ERROR")
         return false
     }
@@ -965,6 +1341,8 @@ ExportPopRankItem(itemNo, dateStr := "") {
         dateStr := FormatTime(A_Now, "yyyyMMdd")
 
     Loop ExportTiming.MaxRetries + 1 {
+        if IsExportCancelled()
+            return false
         if (A_Index > 1) {
             LogMsg(Format("熱門排行 #{1}：第 {2} 次重試，先進行狀態重設", itemNo, A_Index - 1), "WARN")
             ResetPopRankState()
@@ -989,6 +1367,27 @@ ExportPopRankItem(itemNo, dateStr := "") {
  */
 ExportPopRankAll(showMsgBox := true) {
     total := GetPopRankTotalItems()
+    if !BeginExportRun("熱門排行匯出", showMsgBox)
+        return {total: total, ok: [], failed: [], aborted: true}
+    stageState := ""
+    try {
+        stageState := StageExistingCsvs(GetExportOutDir("PopularRanking"), "熱門排行")
+        return RunExportPopRankAll(showMsgBox)
+    } catch as err {
+        msg := Format("熱門排行匯出中止：{1}", err.Message)
+        LogMsg(msg, "ERROR")
+        if showMsgBox
+            MsgBox(msg, "熱門排行匯出", "Icon!")
+        return {total: total, ok: [], failed: [], aborted: true}
+    } finally {
+        if IsObject(stageState)
+            FinalizeCsvStage(stageState)
+        EndExportRun()
+    }
+}
+
+RunExportPopRankAll(showMsgBox := true) {
+    total := GetPopRankTotalItems()
     result := {total: total, ok: [], failed: [], aborted: false}
 
     ; 前置檢查：解析度與該解析度之圖檔
@@ -1006,7 +1405,16 @@ ExportPopRankAll(showMsgBox := true) {
     LogMsg(Format("熱門排行匯出開始：共 {1} 項，目的資料夾 {2}\{3}", total, GetPopRankDstRoot(), dateStr), "INFO")
 
     Loop total {
-        if ExportPopRankItem(A_Index, dateStr)
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
+        ok := ExportPopRankItem(A_Index, dateStr)
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
+        if ok
             result.ok.Push(A_Index)
         else
             result.failed.Push(A_Index)
@@ -1015,11 +1423,11 @@ ExportPopRankAll(showMsgBox := true) {
     failedStr := ""
     for n in result.failed
         failedStr .= (failedStr == "" ? "" : ", ") n
-    summary := Format("熱門排行匯出完成：成功 {1} / {2} 項{3}", result.ok.Length, total
+    summary := Format("熱門排行匯出{1}：成功 {2} / {3} 項{4}", result.aborted ? "已中止" : "完成", result.ok.Length, total
         , result.failed.Length ? "`n失敗項目：" failedStr : "")
-    LogMsg(StrReplace(summary, "`n", "；"), result.failed.Length ? "WARN" : "INFO")
+    LogMsg(StrReplace(summary, "`n", "；"), result.aborted || result.failed.Length ? "WARN" : "INFO")
     if showMsgBox
-        MsgBox(summary, "熱門排行匯出", result.failed.Length ? "Icon!" : "Iconi")
+        MsgBox(summary, "熱門排行匯出", result.aborted || result.failed.Length ? "Icon!" : "Iconi")
     return result
 }
 
@@ -1117,18 +1525,10 @@ TryExportAfterRankItemL(itemNoL) {
     }
     Sleep(ExportTiming.DropOpenDelayMs)
 
-    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → Down × (itemNoL-1) → Enter
-    Send("{Home}")
-    Loop 5 {
-        Send("{PgUp}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Loop itemNoL - 1 {
-        Send("{Down}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Sleep(ExportTiming.KeyDelayMs)
-    Send("{Enter}")
+    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → 獨立 Down 脈衝 → Enter
+    LogMsg(Format("盤後排行 L#{1}：下拉導航 Home、PgUp×5、Down×{2}", itemNoL, itemNoL - 1), "INFO")
+    if !ExecuteDropdownNav(itemNoL, true)
+        return false
 
     ; 選取後立即移開滑鼠，避免游標停在按鈕上方造成 Hover 影響
     oldMouse := CoordMode("Mouse", "Client")
@@ -1147,12 +1547,14 @@ TryExportAfterRankItemL(itemNoL) {
  * @returns {Boolean} 是否成功
  */
 ExportAfterRankItemL(itemNoL) {
-    if (!IsInteger(itemNoL) || itemNoL < 1) {
+    if (!IsInteger(itemNoL) || itemNoL < 1 || itemNoL > GetAfterRankTotalItemsL()) {
         LogMsg(Format("盤後排行 L 選取：項目序號無效 ({1})", itemNoL), "ERROR")
         return false
     }
 
     Loop ExportTiming.MaxRetries + 1 {
+        if IsExportCancelled()
+            return false
         if (A_Index > 1) {
             LogMsg(Format("盤後排行 L#{1}：第 {2} 次重試，先進行狀態重設", itemNoL, A_Index - 1), "WARN")
             ResetAfterRankState()
@@ -1178,8 +1580,8 @@ ExportAfterRankItemL(itemNoL) {
  * 4. Send("{Down}") × (itemNoR - 1)
  * 5. Send("{Enter}")
  * 6. Sleep 等待資料刷新
- * 7. 記錄觸發時間 → FindClickImg("資料匯出.png")
- * 8. 輪詢 OutDir 尋找比觸發時間新的 CSV
+ * 7. 擷取 CSV 基準快照 → FindClickImg("資料匯出.png")
+ * 8. 輪詢 OutDir 尋找相較快照新增或內容已變更的 CSV
  * 9. CopyToDateDir(csv, <專案>\盤後排行, dateStr)
  * @param {Integer} itemNoR 右側項目序號 (1 起算)
  * @param {Integer} itemNoL 所屬左側項目序號 (供日誌記錄，選用)
@@ -1210,18 +1612,10 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     }
     Sleep(ExportTiming.DropOpenDelayMs)
 
-    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → Down × (itemNoR-1) → Enter
-    Send("{Home}")
-    Loop 5 {
-        Send("{PgUp}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Loop itemNoR - 1 {
-        Send("{Down}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Sleep(ExportTiming.KeyDelayMs)
-    Send("{Enter}")
+    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → 獨立 Down 脈衝 → Enter
+    LogMsg(Format("盤後排行 {1}：下拉導航 Home、PgUp×5、Down×{2}", tag, itemNoR - 1), "INFO")
+    if !ExecuteDropdownNav(itemNoR, true)
+        return ""
 
     ; 選取後立即移開滑鼠
     oldMouse := CoordMode("Mouse", "Client")
@@ -1232,7 +1626,8 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     Sleep(ExportTiming.RefreshDelayMs)
 
     ; 7. 點擊資料匯出
-    sinceTime := A_Now
+    outDir := GetExportOutDir("AfterMarketRanking")
+    baseline := CaptureCsvState(outDir)
     if !ClickExportBtn(winTitle, res) {
         LogMsg(Format("盤後排行 {1}：找不到資料匯出按鈕", tag), "WARN")
         ResetAfterRankState(winTitle)
@@ -1245,9 +1640,10 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     CoordMode("Mouse", oldMouse)
 
     ; 8. 輪詢輸出目錄取得新 CSV
-    outDir := GetExportOutDir("AfterMarketRanking")
-    csv := WaitNewCsv(outDir, sinceTime, ExportTiming.TimeoutMs, ExportTiming.PollMs)
+    csv := WaitNewCsv(outDir, baseline, ExportTiming.TimeoutMs, ExportTiming.PollMs)
     if (csv == "") {
+        if IsExportCancelled()
+            return ""
         LogMsg(Format("盤後排行 {1}：{2} 毫秒內未在 {3} 偵測到新 CSV", tag, ExportTiming.TimeoutMs, outDir), "WARN")
         ResetAfterRankState(winTitle)
         return ""
@@ -1269,7 +1665,13 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
  */
 ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     tag := (itemNoL > 0) ? Format("L#{1}-R#{2}", itemNoL, itemNoR) : Format("R#{1}", itemNoR)
-    if (!IsInteger(itemNoR) || itemNoR < 1) {
+    if (!IsInteger(itemNoL) || itemNoL < 0 || itemNoL > GetAfterRankTotalItemsL()) {
+        LogMsg(Format("盤後排行匯出：左側項目序號無效 ({1})", itemNoL), "ERROR")
+        return false
+    }
+    maxR := (IsInteger(itemNoL) && itemNoL >= 1 && itemNoL <= GetAfterRankTotalItemsL())
+        ? GetAfterRankTotalItemsR(itemNoL) : 10
+    if (!IsInteger(itemNoR) || itemNoR < 1 || itemNoR > maxR) {
         LogMsg(Format("盤後排行匯出：項目序號無效 ({1})", tag), "ERROR")
         return false
     }
@@ -1277,6 +1679,8 @@ ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
         dateStr := FormatTime(A_Now, "yyyyMMdd")
 
     Loop ExportTiming.MaxRetries + 1 {
+        if IsExportCancelled()
+            return false
         if (A_Index > 1) {
             LogMsg(Format("盤後排行 {1}：第 {2} 次重試，先進行狀態重設", tag, A_Index - 1), "WARN")
             ResetAfterRankState()
@@ -1302,12 +1706,35 @@ ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
 ExportAfterRankAll(showMsgBox := true) {
     totalL := GetAfterRankTotalItemsL()
     totalItems := 0
-    Loop totalL {
+    Loop totalL
         totalItems += GetAfterRankTotalItemsR(A_Index)
+    if !BeginExportRun("盤後排行匯出", showMsgBox)
+        return {total: totalItems, ok: [], failed: [], aborted: true}
+    stageState := ""
+    try {
+        stageState := StageExistingCsvs(GetExportOutDir("AfterMarketRanking"), "盤後排行")
+        return RunExportAfterRankAll(showMsgBox)
+    } catch as err {
+        msg := Format("盤後排行匯出中止：{1}", err.Message)
+        LogMsg(msg, "ERROR")
+        if showMsgBox
+            MsgBox(msg, "盤後排行匯出", "Icon!")
+        return {total: totalItems, ok: [], failed: [], aborted: true}
+    } finally {
+        if IsObject(stageState)
+            FinalizeCsvStage(stageState)
+        EndExportRun()
     }
+}
+
+RunExportAfterRankAll(showMsgBox := true) {
+    totalL := GetAfterRankTotalItemsL()
+    totalItems := 0
+    Loop totalL
+        totalItems += GetAfterRankTotalItemsR(A_Index)
     result := {total: totalItems, ok: [], failed: [], aborted: false}
 
-    ; 前置檢查：主顯示器解析度與圖檔是否齊全 (僅支援 1920x1080，2560x1440 缺圖寫 WARN 日誌並中止)
+    ; 前置檢查：主顯示器解析度與該解析度圖檔是否齊全 (支援 1920x1080 與 2560x1440)
     res := GetRes(0)
     if !ValidatePriRes(showMsgBox) || !HasResAssets(AfterRankAssets(), res.str) {
         msg := Format("盤後排行匯出中止：解析度 {1} 缺少圖檔 (assets\{1}\盤後下拉L.png、盤後下拉R.png、資料匯出.png) 或不支援", res.str)
@@ -1322,11 +1749,20 @@ ExportAfterRankAll(showMsgBox := true) {
     LogMsg(Format("盤後排行匯出開始：共 {1} 項，目的資料夾 {2}\{3}", totalItems, GetAfterRankDstRoot(), dateStr), "INFO")
 
     Loop totalL {
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
         itemNoL := A_Index
         totalR := GetAfterRankTotalItemsR(itemNoL)
         LogMsg(Format("盤後排行：開始處理左側分類 #{1} (共 {2} 個子項目)", itemNoL, totalR), "INFO")
 
-        if !ExportAfterRankItemL(itemNoL) {
+        leftOk := ExportAfterRankItemL(itemNoL)
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
+        if !leftOk {
             LogMsg(Format("盤後排行：左側分類 #{1} 選取失敗，跳過所屬 {2} 個子項目", itemNoL, totalR), "ERROR")
             Loop totalR {
                 result.failed.Push(Format("L{1}-R{2}", itemNoL, A_Index))
@@ -1335,9 +1771,18 @@ ExportAfterRankAll(showMsgBox := true) {
         }
 
         Loop totalR {
+            if IsExportCancelled() {
+                result.aborted := true
+                break
+            }
             itemNoR := A_Index
             tag := Format("L{1}-R{2}", itemNoL, itemNoR)
-            if ExportAfterRankItemR(itemNoR, itemNoL, dateStr)
+            rightOk := ExportAfterRankItemR(itemNoR, itemNoL, dateStr)
+            if IsExportCancelled() {
+                result.aborted := true
+                break
+            }
+            if rightOk
                 result.ok.Push(tag)
             else
                 result.failed.Push(tag)
@@ -1347,14 +1792,13 @@ ExportAfterRankAll(showMsgBox := true) {
     failedStr := ""
     for k in result.failed
         failedStr .= (failedStr == "" ? "" : ", ") k
-    summary := Format("盤後排行匯出完成：成功 {1} / {2} 項{3}", result.ok.Length, result.total
+    summary := Format("盤後排行匯出{1}：成功 {2} / {3} 項{4}", result.aborted ? "已中止" : "完成", result.ok.Length, result.total
         , result.failed.Length ? "`n失敗項目：" failedStr : "")
-    LogMsg(StrReplace(summary, "`n", "；"), result.failed.Length ? "WARN" : "INFO")
+    LogMsg(StrReplace(summary, "`n", "；"), result.aborted || result.failed.Length ? "WARN" : "INFO")
     if showMsgBox
-        MsgBox(summary, "盤後排行匯出", result.failed.Length ? "Icon!" : "Iconi")
+        MsgBox(summary, "盤後排行匯出", result.aborted || result.failed.Length ? "Icon!" : "Iconi")
     return result
 }
-
 
 ```
 `lib\utils.ahk`:
@@ -1365,22 +1809,52 @@ ExportAfterRankAll(showMsgBox := true) {
 /**
  * 確保 INI 設定檔使用 UTF-16 LE 編碼，以支援 Windows API (GetPrivateProfileStringW) 正確讀取中文
  * @param {String} iniPath INI 檔案路徑
+ * @returns {Boolean} 編碼正確或轉換成功時回傳 true
  */
 EnsureIniEnc(iniPath) {
     if !FileExist(iniPath)
-        return
+        return false
+    tmpPath := ""
     try {
         rawBuf := FileRead(iniPath, "RAW")
         if rawBuf.Size >= 2 && NumGet(rawBuf, 0, "UChar") == 0xFF && NumGet(rawBuf, 1, "UChar") == 0xFE {
-            return ; 已經是 UTF-16 LE (BOM: FF FE)
+            return true ; 已經是 UTF-16 LE (BOM: FF FE)
         }
-        ; 若不是 UTF-16 LE，依 UTF-8 讀取並重新轉存為 UTF-16 LE
-        content := FileRead(iniPath, "UTF-8")
-        f := FileOpen(iniPath, "w", "UTF-16")
+
+        hasUtf8Bom := rawBuf.Size >= 3
+            && NumGet(rawBuf, 0, "UChar") == 0xEF
+            && NumGet(rawBuf, 1, "UChar") == 0xBB
+            && NumGet(rawBuf, 2, "UChar") == 0xBF
+        validUtf8 := hasUtf8Bom || rawBuf.Size == 0
+        if (!validUtf8 && rawBuf.Size > 0) {
+            validUtf8 := DllCall("MultiByteToWideChar", "UInt", 65001, "UInt", 0x8
+                , "Ptr", rawBuf.Ptr, "Int", rawBuf.Size, "Ptr", 0, "Int", 0) > 0
+        }
+        content := FileRead(iniPath, validUtf8 ? "UTF-8" : "CP0")
+
+        tmpPath := iniPath ".tmp-" DllCall("GetCurrentProcessId") "-" A_TickCount
+        f := FileOpen(tmpPath, "w", "UTF-16")
+        if !f
+            throw Error("無法建立暫存設定檔")
         f.Write(content)
         f.Close()
-    } catch {
-        ; 發生例外時不中斷主流程
+
+        verifyBuf := FileRead(tmpPath, "RAW")
+        if (verifyBuf.Size < 2 || NumGet(verifyBuf, 0, "UChar") != 0xFF || NumGet(verifyBuf, 1, "UChar") != 0xFE)
+            throw Error("暫存設定檔缺少 UTF-16 LE BOM")
+
+        MOVEFILE_REPLACE_EXISTING := 0x1
+        MOVEFILE_WRITE_THROUGH := 0x8
+        if !DllCall("MoveFileExW", "Str", tmpPath, "Str", iniPath
+            , "UInt", MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH, "Int")
+            throw OSError(A_LastError, "MoveFileExW")
+        return true
+    } catch as err {
+        if (tmpPath != "" && FileExist(tmpPath)) {
+            try FileDelete(tmpPath)
+        }
+        LogMsg(Format("設定檔編碼轉換失敗 [{1}]: {2}", iniPath, err.Message), "ERROR")
+        return false
     }
 }
 
@@ -1423,7 +1897,8 @@ GetCfg(section, key, defVal := "") {
     if !FileExist(iniPath) {
         return defVal
     }
-    EnsureIniEnc(iniPath)
+    if !EnsureIniEnc(iniPath)
+        return defVal
     try {
         val := IniRead(iniPath, section, key, defVal)
         return val != "" ? val : defVal
@@ -1582,13 +2057,19 @@ GetAfterRankWinTitle() {
  * @param {String} procName 視窗所屬程序名稱
  * @param {String} winTitle 視窗標題
  * @param {String} cfgProcName 設定檔中的三竹股市程序名稱
- * @returns {Boolean} 程序符合且視窗標題非空白時回傳 true
+ * @returns {Boolean} 程序符合且標題精確等於已知三竹視窗時回傳 true
  */
 ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
     isMitakeProc := procName == cfgProcName
         || procName == "三竹股市.exe"
         || InStr(procName, "三竹")
-    return (Trim(winTitle) != "" && isMitakeProc) ? true : false
+    if !isMitakeProc
+        return false
+    for knownTitle in [GetMainWinTitle(), GetPopRankWinTitle(), GetAfterRankWinTitle()] {
+        if (winTitle == knownTitle)
+            return true
+    }
+    return false
 }
 
 /**
@@ -1600,12 +2081,74 @@ FindMitakeWin(winTitle := "") {
     mainTitle := GetMainWinTitle()
     tgtTitle := (winTitle != "") ? winTitle : mainTitle
     procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-    
-    hwnd := WinExist(tgtTitle)
-    if (!hwnd) {
-        hwnd := (tgtTitle == mainTitle) ? WinExist("ahk_exe " procName) : WinExist(tgtTitle " ahk_exe " procName)
+
+    try {
+        for hwnd in WinGetList("ahk_exe " procName) {
+            if (WinGetTitle(hwnd) == tgtTitle)
+                return hwnd
+        }
     }
-    return hwnd ? hwnd : 0
+    return 0
+}
+
+/**
+ * 輪詢等待指定的三竹精確標題視窗出現
+ * @param {String} winTitle 目標精確標題
+ * @param {Number} timeout 等待秒數
+ * @returns {Integer} 視窗 HWND，逾時回傳 0
+ */
+WaitMitakeWin(winTitle, timeout := 5) {
+    deadline := A_TickCount + Round(timeout * 1000)
+    Loop {
+        hwnd := FindMitakeWin(winTitle)
+        if hwnd
+            return hwnd
+        if (A_TickCount >= deadline)
+            return 0
+        Sleep(100)
+    }
+}
+
+/**
+ * 判斷前景視窗中繼資料是否屬於目標視窗的安全暫時性操作環境。
+ * 三竹展開自繪選單後，前景 HWND 會從主視窗切換至同程序的無標題浮層；
+ * 此時座標與 ImageSearch 的 Client 原點也隨浮層切換，不能重新激活主視窗。
+ */
+IsTrustedForegroundMeta(targetPid, activePid, targetRoot, activeRoot, activeTitle) {
+    if (!targetPid || targetPid != activePid)
+        return false
+    return (targetRoot && targetRoot == activeRoot) || Trim(activeTitle) == ""
+}
+
+/**
+ * 取得可安全接受滑鼠與影像操作的目前前景 HWND。
+ * 只接受目標本身，或同程序且具相同 RootOwner／無標題的暫時性選單浮層。
+ */
+GetSafeForegroundContext(targetHwnd, &contextHwnd) {
+    contextHwnd := 0
+    if !targetHwnd || !WinExist(targetHwnd)
+        return false
+
+    activeHwnd := DllCall("user32\GetForegroundWindow", "Ptr")
+    if !activeHwnd
+        return false
+    if (activeHwnd == targetHwnd) {
+        contextHwnd := targetHwnd
+        return true
+    }
+
+    try {
+        targetPid := WinGetPID(targetHwnd)
+        activePid := WinGetPID(activeHwnd)
+        targetRoot := DllCall("user32\GetAncestor", "Ptr", targetHwnd, "UInt", 3, "Ptr") ; GA_ROOTOWNER
+        activeRoot := DllCall("user32\GetAncestor", "Ptr", activeHwnd, "UInt", 3, "Ptr")
+        activeTitle := WinGetTitle(activeHwnd)
+        if IsTrustedForegroundMeta(targetPid, activePid, targetRoot, activeRoot, activeTitle) {
+            contextHwnd := activeHwnd
+            return true
+        }
+    }
+    return false
 }
 
 /**
@@ -1618,20 +2161,40 @@ FindMitakeWin(winTitle := "") {
 ClickPoint(clickX, clickY, tgtWin := "", shouldActivate := false) {
     target := (tgtWin != "") ? tgtWin : GetMainWinTitle()
     clickMethod := GetCfg("App", "ClickMethod", "physical")
-    
-    if (clickMethod == "control") {
-        ControlClick(Format("X{1} Y{2}", clickX, clickY), target)
-    } else {
-        oldMouse := CoordMode("Mouse", "Client")
-        if (shouldActivate) {
-            hwnd := WinExist(target)
-            if (hwnd && !WinActive(hwnd)) {
-                WinActivate(hwnd)
-            }
+
+    if (!IsNumber(clickX) || !IsNumber(clickY) || clickX <= 0 || clickY <= 0) {
+        LogMsg(Format("拒絕無效點擊座標 (X:{1}, Y:{2})", clickX, clickY), "WARN")
+        return false
+    }
+    hwnd := Type(target) == "Integer" ? WinExist(target) : FindMitakeWin(target)
+    if !hwnd {
+        LogMsg(Format("拒絕點擊：目標視窗不存在 [{1}]", target), "WARN")
+        return false
+    }
+
+    try {
+        if (clickMethod == "control") {
+            ControlClick(Format("X{1} Y{2}", clickX, clickY), hwnd)
+            return true
         }
-        MouseMove(clickX, clickY, 0)
-        Click(clickX, clickY)
-        CoordMode("Mouse", oldMouse)
+        if shouldActivate {
+            if !ActivateMitake(hwnd)
+                return false
+        } else if !GetSafeForegroundContext(hwnd, &contextHwnd) {
+            LogMsg(Format("拒絕實體點擊：目標視窗或其選單浮層未在前景 (HWND: {1})", hwnd), "WARN")
+            return false
+        }
+        oldMouse := CoordMode("Mouse", "Client")
+        try {
+            MouseMove(clickX, clickY, 0)
+            Click(clickX, clickY)
+        } finally {
+            CoordMode("Mouse", oldMouse)
+        }
+        return true
+    } catch as err {
+        LogMsg(Format("點擊失敗 (HWND: {1}, X:{2}, Y:{3}): {4}", hwnd, clickX, clickY, err.Message), "WARN")
+        return false
     }
 }
 
@@ -1650,14 +2213,14 @@ SwitchToMainWin(timeout := 3) {
         return false
     }
     
-    ActivateMitake(hwnd)
+    if !ActivateMitake(hwnd, timeout)
+        return false
     
     if WinWaitActive(hwnd, , timeout) {
         LogMsg(Format("已成功切換至主程式視窗: {1}", mainWinTitle), "INFO")
         return true
-    } else {
-        return WinExist(hwnd) ? true : false
     }
+    return false
 }
 
 /**
@@ -1683,15 +2246,15 @@ LaunchMitake(customPath := "") {
     mainWinTitle := GetMainWinTitle()
     procName := GetCfg("App", "ProcessName", "三竹股市.exe")
     timeoutStr := GetCfg("App", "Timeout", "15")
-    timeout := Integer(timeoutStr)
+    timeout := IsInteger(timeoutStr) && Integer(timeoutStr) > 0 ? Integer(timeoutStr) : 15
 
     ; 1. 若主程式視窗已經存在，切換至主程式視窗並最大化
-    if WinExist(mainWinTitle) || WinExist("ahk_exe " procName) {
+    if FindMitakeWin(mainWinTitle) {
         LogMsg("三竹股市已在執行中，正在切換至主程式視窗...", "INFO")
         return SwitchToMainWin()
     } else if ProcessExist(procName) {
         LogMsg("檢測到三竹股市程序運作中，等待主程式視窗出現...", "INFO")
-        if WinWait(mainWinTitle, , 5) || WinWait("ahk_exe " procName, , 5) {
+        if WaitMitakeWin(mainWinTitle, 10) {
             return SwitchToMainWin()
         }
     }
@@ -1719,7 +2282,7 @@ LaunchMitake(customPath := "") {
     }
 
     ; 4. 等待主程式視窗開啟 (同時兼容主標題或程序名稱)
-    if WinWait(mainWinTitle, , timeout) || WinWait("ahk_exe " procName, , timeout) {
+    if WaitMitakeWin(mainWinTitle, timeout) {
         LogMsg("三竹股市主程式視窗已成功啟動。", "INFO")
         Sleep(500)
         return SwitchToMainWin()
@@ -1735,10 +2298,10 @@ LaunchMitake(customPath := "") {
  * @param {Integer|String} target 視窗 HWND 或 WinTitle (0 代表預設主程式視窗)
  * @returns {Boolean} 是否成功激活
  */
-ActivateMitake(target := 0) {
+ActivateMitake(target := 0, timeout := 1) {
     mainWinTitle := GetMainWinTitle()
     tgtWin := (target != 0) ? target : mainWinTitle
-    hwnd := (target != 0 && WinExist(target)) ? WinExist(target) : FindMitakeWin(tgtWin)
+    hwnd := Type(target) == "Integer" && target != 0 ? WinExist(target) : FindMitakeWin(tgtWin)
     
     if !hwnd {
         return false
@@ -1751,12 +2314,35 @@ ActivateMitake(target := 0) {
         Sleep(50)
     }
     
-    ; 2. 設置前景焦點鎖定許可並激活視窗
+    ; 2. 將視窗定位到主顯示器，避免以主顯示器圖資操作副螢幕視窗
+    pri := GetRes(0)
+    try {
+        WinGetPos(&winX, &winY, &winW, &winH, hwnd)
+        centerX := winX + winW // 2
+        centerY := winY + winH // 2
+        onPrimary := centerX >= pri.left && centerX < pri.right && centerY >= pri.top && centerY < pri.bottom
+        if !onPrimary {
+            if (WinGetMinMax(hwnd) == 1)
+                WinRestore(hwnd)
+            WinMove(pri.left + 10, pri.top + 10, , , hwnd)
+            Sleep(50)
+        }
+    } catch as err {
+        LogMsg(Format("定位視窗至主顯示器失敗 (HWND: {1}): {2}", hwnd, err.Message), "WARN")
+        return false
+    }
+
+    ; 3. 設置前景焦點鎖定許可並激活視窗
     DllCall("user32\AllowSetForegroundWindow", "Int", -1)
     DllCall("user32\SetForegroundWindow", "Ptr", hwnd)
     WinActivate(hwnd)
+
+    if !WinWaitActive(hwnd, , timeout) {
+        LogMsg(Format("無法取得目標視窗前景焦點 (HWND: {1})", hwnd), "WARN")
+        return false
+    }
     
-    ; 3. 若未處於最大化狀態，再進行最大化，避免重覆最大化關閉已展開的選單
+    ; 4. 若未處於最大化狀態，再進行最大化，避免重覆最大化關閉已展開的選單
     if (WinGetMinMax(hwnd) != 1) {
         WinMaximize(hwnd)
     }
@@ -1774,7 +2360,7 @@ ActivateMitake(target := 0) {
 ToggleMenuBar() {
     mainWinTitle := GetMainWinTitle()
     
-    if !WinExist(mainWinTitle) && !IsMitakeRunning() {
+    if !FindMitakeWin(mainWinTitle) && !IsMitakeRunning() {
         LogMsg("切換選單列失敗：三竹股市未開啟", "WARN")
         return false
     }
@@ -1789,12 +2375,10 @@ ToggleMenuBar() {
     
     if (mode == "image") {
         res := GetRes(0)
-        imgPath := Format("assets/{1}/menu.png", res.str)
+        imgPath := GetAssetImgPath("menu.png", res.str)
         if !FileExist(imgPath) {
-            imgPath := Format("assets/menu_{1}.png", res.str)
-        }
-        if !FileExist(imgPath) {
-            imgPath := GetCfg("MenuBar", "ImagePath", "assets/1920x1080/menu.png")
+            customPath := GetCfg("MenuBar", "ImagePath", "")
+            imgPath := (customPath != "") ? GetRootDir() "\" customPath : imgPath
         }
         imgRes := FindClickImg(imgPath, 0, 0, 1200, 400, 30, mainWinTitle)
         if imgRes.found {
@@ -1803,14 +2387,16 @@ ToggleMenuBar() {
         
         ; 影像辨識退回預設座標點擊
         coords := GetResCoords("MenuBar")
-        ClickPoint(coords.x, coords.y, mainWinTitle, true)
+        if !ClickPoint(coords.x, coords.y, mainWinTitle, true)
+            return false
         LogMsg(Format("圖像搜尋未找到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, coords.x, coords.y), "WARN")
         return true
     } else if (mode == "click") {
         ; 模擬點擊選單按鈕 (依解析度由 settings.ini 讀取)
         res := GetRes(0)
         coords := GetResCoords("MenuBar")
-        ClickPoint(coords.x, coords.y, mainWinTitle, true)
+        if !ClickPoint(coords.x, coords.y, mainWinTitle, true)
+            return false
         LogMsg(Format("已對三竹股市視窗進行選單點擊 (解析度: {1}, X:{2}, Y:{3})", res.str, coords.x, coords.y), "INFO")
     } else {
         ; 傳送選單按鍵 (預設傳送 Alt 鍵)
@@ -1865,13 +2451,28 @@ FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, varia
     }
     
     winTitle := (tgtWin != "") ? tgtWin : GetMainWinTitle()
-    hwnd := FindMitakeWin(winTitle)
+    hwnd := Type(winTitle) == "Integer" ? WinExist(winTitle) : FindMitakeWin(winTitle)
     if !hwnd {
         return {found: false, x: 0, y: 0}
     }
     
+    contextHwnd := hwnd
     if (shouldActivate && !WinActive(hwnd)) {
-        ActivateMitake(hwnd)
+        if !ActivateMitake(hwnd)
+            return {found: false, x: 0, y: 0}
+        contextHwnd := hwnd
+    } else if (!shouldActivate && !GetSafeForegroundContext(hwnd, &contextHwnd)) {
+        LogMsg(Format("取消圖像搜尋：目標視窗或其選單浮層未在前景 (HWND: {1})", hwnd), "WARN")
+        return {found: false, x: 0, y: 0}
+    }
+
+    try {
+        WinGetClientPos(, , &clientW, &clientH, contextHwnd)
+        winX2 := Min(winX2, clientW - 1)
+        winY2 := Min(winY2, clientH - 1)
+    } catch as err {
+        LogMsg(Format("取得圖像搜尋客戶區失敗 (HWND: {1}): {2}", hwnd, err.Message), "WARN")
+        return {found: false, x: 0, y: 0}
     }
     
     oldPixel := CoordMode("Pixel", "Client")
@@ -1884,7 +2485,10 @@ FindClickImg(imgPath, winX1 := 0, winY1 := 0, winX2 := 1200, winY2 := 400, varia
             targetX := foundX + (imgW // 2)
             targetY := foundY + (imgH // 2)
             
-            ClickPoint(targetX, targetY, hwnd, shouldActivate)
+            if !ClickPoint(targetX, targetY, hwnd, false) {
+                CoordMode("Pixel", oldPixel)
+                return {found: false, x: 0, y: 0}
+            }
             clickMethod := GetCfg("App", "ClickMethod", "physical")
             
             LogMsg(Format("圖像辨識成功 ({1})，圖案尺寸({2}x{3})，已用[{4}]點擊中心座標 ({5}, {6})", imgPath, imgW, imgH, clickMethod, targetX, targetY), "INFO")
@@ -1929,30 +2533,14 @@ GetAssetImgPath(assetName, tgtRes := "") {
     if FileExist(p2)
         return p2
         
-    ; 3. 備援尋找 2560x1440 目錄
-    p3 := rootDir "\assets\2560x1440\" assetName
-    if FileExist(p3)
-        return p3
-
-    ; 4. 備援尋找 1920x1080 目錄
-    p4 := rootDir "\assets\1920x1080\" assetName
-    if FileExist(p4)
-        return p4
-        
-    ; 5. 備援尋找 assets/ 直屬目錄
-    p5 := rootDir "\assets\" assetName
-    if FileExist(p5)
-        return p5
-        
-    ; 若皆不存在，傳回最符合預期的路徑 p1
+    ; 嚴禁跨解析度使用圖檔；若不存在則傳回該解析度的預期路徑供呼叫端安全失敗
     return p1
 }
 
 /**
  * 取得指定區段在指定解析度 (或當前主顯示器解析度) 下的降級點擊座標
  * 優先讀取 ClickX_{Resolution} / ClickY_{Resolution} (例如 ClickX_1920x1080, ClickX_2560x1440)，
- * 亦支援 {Resolution}_ClickX / {Resolution}_ClickY 命名格式，
- * 若未設定則向後相容讀取 ClickX / ClickY，最後回傳傳入之預設值。
+ * 亦支援 {Resolution}_ClickX / {Resolution}_ClickY 命名格式；若未設定則回傳傳入之中性預設值。
  * @param {String} section INI 區段名稱 (例: "SecuritiesQuote", "PopularRanking", "AfterMarketRanking")
  * @param {Integer} defX 備用 X 座標預設值
  * @param {Integer} defY 備用 Y 座標預設值
@@ -1976,15 +2564,9 @@ GetResCoords(section, defX := 0, defY := 0, tgtRes := "") {
         valY := GetCfg(section, tgtRes "_ClickY", "")
     }
     
-    ; 2. 若未設定，降級向後相容讀取一般通用 ClickX / ClickY
-    if (valX == "") {
-        valX := GetCfg(section, "ClickX", String(defX))
-    }
-    if (valY == "") {
-        valY := GetCfg(section, "ClickY", String(defY))
-    }
-    
-    return {x: Integer(valX), y: Integer(valY)}
+    x := (valX != "" && IsInteger(valX)) ? Integer(valX) : Integer(defX)
+    y := (valY != "" && IsInteger(valY)) ? Integer(valY) : Integer(defY)
+    return {x: x, y: y}
 }
 
 /**
@@ -2016,7 +2598,8 @@ ClickSecQuoteMenu() {
     } else {
         ; 影像搜尋若未比對成功，降級採用 settings.ini 當前解析度的相對座標點擊
         coords := GetResCoords("SecuritiesQuote")
-        ClickPoint(coords.x, coords.y, mainWinTitle, false)
+        if !ClickPoint(coords.x, coords.y, mainWinTitle, false)
+            return false
         LogMsg(Format("圖像辨識點擊「證券行情」未比對到 ({1})，降級採用解析度 [{2}] 座標點擊 (X:{3}, Y:{4})", imgPath, res.str, coords.x, coords.y), "WARN")
         return true
     }
@@ -2055,21 +2638,22 @@ ClickRankMenu(itemName, section, tgtWinTitle, waitNewWindow := true, timeout := 
         clicked := true
     } else {
         coords := GetResCoords(section)
-        ClickPoint(coords.x, coords.y, mainWinTitle, false)
+        if !ClickPoint(coords.x, coords.y, mainWinTitle, false)
+            return false
         LogMsg(Format("圖像辨識點擊「{1}」未比對到 ({2})，降級採用解析度 [{3}] 座標點擊 (X:{4}, Y:{5})", itemName, imgPath, res.str, coords.x, coords.y), "WARN")
         clicked := true
     }
     
     ; 3. 點擊後等待新視窗出現
     if (clicked && waitNewWindow) {
-        procName := GetCfg("App", "ProcessName", "三竹股市.exe")
-        hwnd := 0
-        if WinWait(tgtWinTitle, , timeout) || WinWait(tgtWinTitle " ahk_exe " procName, , timeout) {
-            hwnd := FindMitakeWin(tgtWinTitle)
-            ActivateMitake(hwnd)
+        hwnd := WaitMitakeWin(tgtWinTitle, timeout)
+        if hwnd {
+            if !ActivateMitake(hwnd)
+                return false
             LogMsg(Format("已偵測到「{1}」新視窗 ({2}) 並最大化顯示", itemName, tgtWinTitle), "INFO")
         } else {
             LogMsg(Format("等待「{1}」新視窗 ({2}) 出現超時 ({3} 秒)", itemName, tgtWinTitle, timeout), "WARN")
+            return false
         }
     }
     
@@ -2111,7 +2695,8 @@ ClickAfterRankMenu(waitNewWindow := true, timeout := 5) {
 SwitchToSubWin(winTitle, itemName, openFunc, timeout := 5) {
     hwnd := FindMitakeWin(winTitle)
     if hwnd {
-        ActivateMitake(hwnd)
+        if !ActivateMitake(hwnd)
+            return false
         LogMsg(Format("已切換至現有的「{1}」視窗: {2}", itemName, winTitle), "INFO")
         return true
     }
@@ -2146,15 +2731,17 @@ SwitchToAfterRankWin(timeout := 5) {
 ```md
 # 熱門排行全項目匯出：規格與設計說明 (Popular Ranking Export Spec)
 
+> 實機驗證狀態：2026-10-09 已完成 44 項完整托盤批次驗證。問題閉環記錄見 [LESSONS_LEARNED.md](LESSONS_LEARNED.md)。
+
 ## 一、 範圍與目標 (Scope & Objectives)
 - 自動化批次匯出三竹股市「證券行情」→「熱門排行」下拉清單內之所有項目（共 **44** 項）。
-- 支援主顯示器解析度 **1920x1080**（2560x1440 缺圖時記錄 WARN 日誌並中止）。
+- 支援主顯示器解析度 **1920x1080** 與 **2560x1440**；其他解析度或缺少該解析度必要圖檔時記錄 WARN 日誌並中止。
 - 架構與模式作為後續「盤後排行」全項目匯出之基礎設計規範。
 
 ---
 
 ## 二、 前置條件與環境 (Prerequisites)
-1. **防搶焦點機制**：三竹之資料匯出關聯程式設定指向 [bypass.bat](file:///d:/DJC/TEST/三竹/bypass.bat)，該批次檔啟動後立即結束退出，防止系統自動開啟 Excel 奪取前台焦點。
+1. **防搶焦點機制**：三竹之資料匯出關聯程式設定指向 [bypass.bat](bypass.bat)，該批次檔啟動後立即結束退出，防止系統自動開啟 Excel 奪取前台焦點。
 2. **匯出暫存目錄**：三竹股市預設匯出 CSV 路徑為 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_漲停鎖住.csv`）。
 3. **專案存放目的地**：`<專案根目錄>\熱門排行\YYYYMMDD\<原始檔名>.csv`。
 
@@ -2168,7 +2755,8 @@ SwitchToAfterRankWin(timeout := 5) {
 | :--- | :--- | :--- |
 | `RefreshDelayMs` | 1500 ms | Enter 選取下拉項目後，等待三竹介面資料刷新之緩衝時間 |
 | `DropOpenDelayMs` | 300 ms | 點擊下拉箭頭後，等待自繪下拉選單浮層渲染展開之延遲 |
-| `KeyDelayMs` | 30 ms | 鍵盤方向鍵 (`Down` / `PgUp`) 連續發送之間隔延遲 |
+| `KeyHoldMs` | 40 ms | 每個導航鍵維持按下狀態的時間，確保自繪清單收到 KeyDown／KeyUp |
+| `KeyDelayMs` | 60 ms | 每個獨立按鍵脈衝放開後的間隔 |
 | `TimeoutMs` | 10000 ms | 輪詢三竹輸出新 CSV 檔案之最長逾時時間 |
 | `PollMs` | 200 ms | 輪詢輸出目錄之週期檢查間隔 |
 | `MaxRetries` | 2 次 | 單一項目若未成功匯出，最多自動重試次數（連同初次共最多執行 3 次） |
@@ -2190,20 +2778,20 @@ SwitchToAfterRankWin(timeout := 5) {
    - 搜尋資產圖檔 `assets/{解析度}/熱門下拉.png`（容許度 `variation := 45`）。
    - 命中後點擊展開自繪下拉選單，並延遲 `DropOpenDelayMs` (300 ms)。
 4. **鍵盤導航選取**：
-   - **首項歸位**：三竹自繪選單不支援標準 Win32 `{Home}` 鍵，改為發送 5 次 `Send("{PgUp}")` 向上翻頁確保游標穩定歸位至第 1 項。
-   - **遞增定位**：發送 `(itemNo - 1)` 次 `Send("{Down}")`，定位至目標項目。
-   - **確認選取**：發送 `Send("{Enter}")` 套用選取。
+   - **首項歸位**：三竹自繪選單不支援標準 Win32 `{Home}` 鍵，改為發送 5 個獨立 `{PgUp}` 按鍵脈衝，確保游標穩定歸位至第 1 項。
+   - **遞增定位**：發送 `(itemNo - 1)` 個具明確 KeyDown、停留、KeyUp 與間隔的 `{Down}` 脈衝，避免快速 `SendInput` 被自繪清單忽略而停在第 2 項。
+   - **確認選取**：以相同按鍵脈衝方式發送 `{Enter}` 套用選取。
    - **解除停懸**：選取後立即將滑鼠游標移至客戶端 `(10, 10)`。
 5. **等待資料刷新**：
    - 等待 `RefreshDelayMs` (1500 ms)，確保報表資料重新載入完成。
 6. **點擊「資料匯出」(`ClickExportBtn`)**：
-   - 記錄觸發起始時間戳記 `sinceTime := A_Now`。
+   - 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
    - **優先圖像辨識**：搜尋 `assets/{解析度}/資料匯出.png`（容許度 `variation := 45`），找到即點擊。
    - **座標備援機制**：若圖像比對未命中，自動讀取 `config/settings.ini` 中 `[ExportButton]` 區段之解析度座標（1920x1080 預設為 `X=1777, Y=50`）降級點擊；若未設定座標則安全中止並記錄 WARN 日誌。
    - 點擊後再次將游標移至 `(10, 10)` 避免 Hover 影響後續比對。
 7. **輪詢捕捉新 CSV (`WaitNewCsv`)**：
-   - 在 `outDir` 輪詢修改時間不早於 `sinceTime` 之最新 CSV 檔案。
-   - 透過 `IsFileReady(csv)`（嘗試獨佔唯讀開啟）確保三竹已完全釋放寫入鎖定。
+   - 在 `outDir` 尋找相較基準新增或內容已改變的 CSV，避免同一秒內覆寫舊檔造成漏判。
+   - 透過 `IsFileReady(csv)`（嘗試獨佔唯讀開啟）及連續兩次相同簽章，確認三竹已完成寫入。
    - 逾時 `TimeoutMs` (10 秒) 或檔案未就緒則回傳失敗。
 8. **歸檔複製 (`CopyToDateDir`)**：
    - 將檔案複製至 `<專案根目錄>\熱門排行\<dateStr>\<原始檔名>.csv`（保留原檔名，同名覆蓋）。
@@ -2215,10 +2803,13 @@ SwitchToAfterRankWin(timeout := 5) {
 
 ### 3. 批次全項目匯出：`ExportPopRankAll(showMsgBox := true)`
 - 讀取設定檔之項目總數 `TotalItems`（預設為 **44**）。
+- 批次開始前以 `StageExistingCsvs` 暫存 OUT 目錄既有 CSV，避免三竹因同名檔已存在而不重新寫入，造成逾時後重複點擊同一項目。
 - 批次啟動前取得統一日期字串 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用同一個歸檔子目錄。
 - 依序迴圈 `itemNo := 1 .. TotalItems` 執行單項匯出。
-- 即時累計成功與失敗清單，所有執行歷程輸出至 [logs/app.log](file:///d:/DJC/TEST/三竹/logs/app.log)。
+- 同一時間僅允許一個批次匯出；執行期間按 `Esc` 可要求在安全檢查點中止。
+- 即時累計成功與失敗清單，所有執行歷程輸出至 [logs/app.log](logs/app.log)。
 - 結束時顯示摘要訊息方塊（可透過 `showMsgBox := false` 抑制彈窗，供無頭測試與背景自動化使用）。
+- 批次結束或異常中止時以 `FinalizeCsvStage` 恢復未被取代的檔案；同名舊版保留於 `logs\out-backups\`，不直接刪除。
 
 ---
 
@@ -2232,8 +2823,6 @@ ClickX_1920x1080 = 77
 ClickY_1920x1080 = 80
 ClickX_2560x1440 = 78
 ClickY_2560x1440 = 80
-ClickX = 77
-ClickY = 80
 TotalItems = 44
 OutDir = D:\Program Files\MitakeGU\USER\OUT
 
@@ -2251,7 +2840,7 @@ PopRankExportHotkey =
 
 1. **系統托盤選單 (Tray Menu)**：點擊「匯出熱門排行」直接啟動批次作業。
 2. **自訂全域熱鍵**：可於 `settings.ini` 之 `[Hotkey]` 設定 `PopRankExportHotkey`。
-3. **實機手動測試工具**：執行 [tests/test_pop_rank_export.ahk](file:///d:/DJC/TEST/三竹/tests/test_pop_rank_export.ahk)。
+3. **實機手動測試工具**：執行 [tests/test_pop_rank_export.ahk](tests/test_pop_rank_export.ahk)。
    - 按 `F9`：執行單一項目手動測試（預設 Item 1）。
    - 按 `F10`：執行完整批次 44 項自動匯出測試。
    - 按 `$Esc`：強制中斷正在執行的測試流程（使用鍵盤 hook 避免與內部 `Send("{Esc}")` 重設狀態互相干擾）。
@@ -2260,12 +2849,12 @@ PopRankExportHotkey =
 
 ## 七、 測試與驗證體系
 
-1. **無頭自動化單元測試**：[tests/test_export.ahk](file:///d:/DJC/TEST/三竹/tests/test_export.ahk)
+1. **無頭自動化單元測試**：[tests/test_export.ahk](tests/test_export.ahk)
    - 透過暫存目錄驗證 `FindNewCsv`、`WaitNewCsv`、`CopyToDateDir`、`IsFileReady`。
    - 驗證 `GetPopRankTotalItems` 預設值 (44) 與自訂讀取、`HasResAssets`、`PopRankAssets` 等純邏輯。
-   - 整合於 [tests/run_tests.ahk](file:///d:/DJC/TEST/三竹/tests/run_tests.ahk) 全域測試套件。
+   - 整合於 [tests/run_tests.ahk](tests/run_tests.ahk) 全域測試套件。
 2. **實機診斷與校正工具**：
-   - [tests/diagnose_export_btn.ahk](file:///d:/DJC/TEST/三竹/tests/diagnose_export_btn.ahk)：驗證「資料匯出」圖像比對、座標計算與滑鼠平滑移動校正。
-   - [tests/capture_asset.ahk](file:///d:/DJC/TEST/三竹/tests/capture_asset.ahk)：截取與更新按鈕與箭頭純淨圖檔資產。
+   - [tests/diagnose_export_btn.ahk](tests/diagnose_export_btn.ahk)：驗證「資料匯出」圖像比對、座標計算與滑鼠平滑移動校正。
+   - [tests/capture_asset.ahk](tests/capture_asset.ahk)：截取與更新按鈕與箭頭純淨圖檔資產。
 
 ```

@@ -1,5 +1,7 @@
 # 盤後排行全項目匯出：規格與設計說明書
 
+> 實機驗證狀態：2026-10-09 已完成 36 項完整托盤批次驗證。問題閉環記錄見 [LESSONS_LEARNED.md](LESSONS_LEARNED.md)。
+
 ## 1. 範圍與目標
 - 本規格定義針對三竹股市電腦版「證券行情」→「盤後排行」功能之全項目自動化匯出作業。
 - 介面包含二維階層式下拉選單：左側大分類清單（`盤後下拉L.png`）與右側子項目清單（`盤後下拉R.png`）。
@@ -9,8 +11,8 @@
 
 ## 2. 前置條件與外部環境
 1. **外部關聯程式攔截**：
-   - 系統關聯應用已配置指向 [`bypass.bat`](file:///d:/DJC/TEST/三竹/bypass.bat) 以快速關閉外部程序。
-   - 三竹在觸發「資料匯出」後仍可能非同步喚醒 Excel 或第三方應用奪取前台焦點；腳本在各子項目操作起點均防禦性調用 [`SwitchToAfterRankWin()`](file:///d:/DJC/TEST/三竹/lib/window_control.ahk) 確保三竹視窗取得前景控制權。
+   - 系統關聯應用已配置指向 [`bypass.bat`](bypass.bat) 以快速關閉外部程序。
+   - 三竹在觸發「資料匯出」後仍可能非同步喚醒 Excel 或第三方應用奪取前台焦點；腳本在各子項目操作起點均防禦性調用 [`SwitchToAfterRankWin()`](lib/window_control.ahk) 確保三竹視窗取得前景控制權。
 2. **輸出路徑**：
    - 三竹匯出原始 CSV 預設輸出至 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
 3. **二維分類項目結構**：
@@ -33,7 +35,8 @@
 程式內建寫死之時序配置（避免非必要配置膨脹）：
 - `RefreshDelayMs` (1500 ms)：Enter 選取項目後等待介面資料刷新。
 - `DropOpenDelayMs` (300 ms)：點擊下拉箭頭後等待清單浮層展開渲染。
-- `KeyDelayMs` (30 ms)：方向鍵導航之按鍵間隔。
+- `KeyHoldMs` (40 ms)：每個導航鍵維持按下狀態的時間。
+- `KeyDelayMs` (60 ms)：每個獨立按鍵脈衝放開後的間隔，避免自繪清單漏接連續按鍵。
 - `TimeoutMs` (10000 ms)：輪詢 OUT 目錄取得新 CSV 檔案之逾時上限。
 - `PollMs` (200 ms)：輪詢檔案存在與讀取鎖定之檢查間隔。
 - `MaxRetries` (2 次)：單一項目失敗時之最多重試次數。
@@ -64,9 +67,9 @@
   4. 等待 300 ms 浮層展開。
   5. 鍵盤導航歸位：發送 `{Home}` + 連續 5 次 `{PgUp}`，隨後發送 `{Down}` × `(itemNoR - 1)`，最後 `{Enter}` 確認選取。
   6. 滑鼠移至 `(10, 10)` 清除 Hover，等待 1500 ms 介面刷新。
-  7. 記錄觸發時間 `sinceTime := A_Now`。
+  7. 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
   8. `ClickExportBtn()` 點擊「資料匯出」按鈕（優先圖像搜尋 `資料匯出.png`，失敗降級採用 `settings.ini` 之 `[ExportButton]` 座標），點擊後立即移開滑鼠。
-  9. `WaitNewCsv(outDir, sinceTime)` 輪詢 OUT 目錄尋找新產生的 CSV 且確認檔案寫入完成（`IsFileReady`）。
+  9. `WaitNewCsv(outDir, baseline)` 尋找相較基準新增或內容已改變的 CSV，並以 `IsFileReady` 與連續兩次相同簽章確認寫入完成。
   10. `CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)`：複製覆蓋至 `<專案>\盤後排行\YYYYMMDD\<原始檔名>`。
 
 ### 3.5 批次全項目匯出 (`ExportAfterRankAll`)
@@ -75,6 +78,7 @@
   - 檢驗主顯示器解析度（支援 1920x1080 與 2560x1440）與該解析度下之必備圖檔（`盤後下拉L.png`、`盤後下拉R.png`、`資料匯出.png`）。
   - 若解析度不符或圖檔缺失，記錄 WARN 日誌並中止（`aborted := true`）。
 - **日期目錄決定**：批次開始時決定一次 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用。
+- **既有 CSV 衝突隔離**：批次開始前暫存 OUT 目錄既有 CSV；結束時恢復未被取代的檔案，同名舊版保留於 `logs\out-backups\`，避免三竹拒絕覆寫後觸發同項重試。
 - **巢狀執行與失敗熔斷**：
   - 外迴圈走訪分類 `itemNoL := 1..TotalItemsL` (5)。
   - 若外層分類 `itemNoL` 選取失敗：實施**立即熔斷 (Circuit Breaking)**，跳過該分類底下的所有子項目，並將其全部子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單，避免級聯式的盲目重試。
@@ -82,6 +86,7 @@
 - **摘要回報**：
   - 全程記錄於 `logs/app.log`。
   - 依 `showMsgBox` 決定是否彈出最終統計摘要（成功數 / 總數，失敗項目清單）。
+  - 同一時間僅允許一個熱門排行或盤後排行批次；執行期間按 `Esc` 可要求在安全檢查點中止。
 
 ---
 
@@ -93,8 +98,6 @@ ClickX_1920x1080 = 78
 ClickY_1920x1080 = 110
 ClickX_2560x1440 = 78
 ClickY_2560x1440 = 110
-ClickX = 78
-ClickY = 110
 TotalItemsL = 5
 TotalItemsR1 = 10
 TotalItemsR2 = 10
@@ -115,7 +118,7 @@ AfterRankExportHotkey =
 
 ## 5. 進入點整合 (`Mitake.ahk`)
 - **系統托盤選單 (Tray Menu)**：
-  - 加入「匯出盤後排行」（`A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())`）。
+  - 「匯出盤後排行」由 `MenuAfterRankExportHnd` 啟動批次匯出。
 - **快捷鍵表驅動註冊**：
   - 註冊項：`{cfg: "AfterRankExportHotkey", def: "", desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}`。
 

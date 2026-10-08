@@ -81,10 +81,15 @@ if (A_Args.Length > 0) {
     } else if (action == "after" || action == "aftermarket" || action == "盤後排行") {
         TestCoordinateClick("AfterMarketRanking", "盤後排行")
     } else if (action == "all" || action == "全部") {
-        TestCoordinateClick("PopularRanking", "熱門排行", false)
+        popOk := TestCoordinateClick("PopularRanking", "熱門排行", false)
         Sleep(1000)
-        TestCoordinateClick("AfterMarketRanking", "盤後排行", false)
-        MsgBox("「熱門排行」與「盤後排行」相對座標點擊測試已全數完成！", "測試完成", "Iconi")
+        afterOk := TestCoordinateClick("AfterMarketRanking", "盤後排行", false)
+        MsgBox(Format("熱門排行：{1}`n盤後排行：{2}", popOk ? "成功" : "失敗", afterOk ? "成功" : "失敗")
+            , "測試完成", popOk && afterOk ? "Iconi" : "Icon!")
+        ExitApp(popOk && afterOk ? 0 : 1)
+    } else {
+        MsgBox("未知動作：" action, "座標點擊測試", "Icon!")
+        ExitApp(1)
     }
     ExitApp()
 }
@@ -104,10 +109,11 @@ btnPop.OnEvent("Click", (*) => (testGui.Hide(), TestCoordinateClick("PopularRank
 btnAfter.OnEvent("Click", (*) => (testGui.Hide(), TestCoordinateClick("AfterMarketRanking", "盤後排行"), testGui.Show()))
 btnAll.OnEvent("Click", (*) => (
     testGui.Hide(),
-    TestCoordinateClick("PopularRanking", "熱門排行", false),
+    popOk := TestCoordinateClick("PopularRanking", "熱門排行", false),
     Sleep(1000),
-    TestCoordinateClick("AfterMarketRanking", "盤後排行", false),
-    MsgBox("「熱門排行」與「盤後排行」相對座標點擊測試已全數完成！", "測試完成", "Iconi"),
+    afterOk := TestCoordinateClick("AfterMarketRanking", "盤後排行", false),
+    MsgBox(Format("熱門排行：{1}`n盤後排行：{2}", popOk ? "成功" : "失敗", afterOk ? "成功" : "失敗")
+        , "測試完成", popOk && afterOk ? "Iconi" : "Icon!"),
     testGui.Show()
 ))
 btnExit.OnEvent("Click", (*) => ExitApp())

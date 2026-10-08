@@ -11,10 +11,89 @@
 class ExportTiming {
     static RefreshDelayMs := 1500   ; Enter 選取項目後等待資料刷新
     static DropOpenDelayMs := 300   ; 點擊下拉箭頭後等待清單展開
-    static KeyDelayMs := 30         ; 方向鍵之間的間隔
+    static KeyHoldMs := 40          ; 自繪清單需辨識完整的按下／放開事件
+    static KeyDelayMs := 60         ; 每次按鍵脈衝放開後的間隔
     static TimeoutMs := 10000       ; 輪詢匯出 CSV 之逾時
     static PollMs := 200            ; 輪詢間隔
     static MaxRetries := 2          ; 單一項目失敗後最多重試次數
+}
+
+class ExportRunState {
+    static Busy := false
+    static CancelRequested := false
+    static Kind := ""
+}
+
+/**
+ * 建立自繪下拉清單的鍵盤導航計畫。
+ * 每個 Down 都保留為獨立脈衝，避免 SendInput 合併或三竹忽略連續快速按鍵。
+ */
+BuildDropdownNavPlan(itemNo, includeHome := false) {
+    plan := []
+    if includeHome
+        plan.Push("Home")
+    Loop 5
+        plan.Push("PgUp")
+    Loop itemNo - 1
+        plan.Push("Down")
+    plan.Push("Enter")
+    return plan
+}
+
+SendDropdownKeyPulse(keyName) {
+    SendEvent("{" keyName " down}")
+    Sleep(ExportTiming.KeyHoldMs)
+    SendEvent("{" keyName " up}")
+    Sleep(ExportTiming.KeyDelayMs)
+}
+
+ExecuteDropdownNav(itemNo, includeHome := false) {
+    plan := BuildDropdownNavPlan(itemNo, includeHome)
+    for keyName in plan {
+        if IsExportCancelled()
+            return false
+        SendDropdownKeyPulse(keyName)
+    }
+    return true
+}
+
+IsExportRunActive() => ExportRunState.Busy
+IsExportCancelled() => ExportRunState.CancelRequested
+
+SetExportUiEnabled(enabled) {
+    for itemName in ["啟動/切換 三竹股市", "切換至 熱門排行", "切換至 盤後排行", "匯出熱門排行", "匯出盤後排行"] {
+        try enabled ? A_TrayMenu.Enable(itemName) : A_TrayMenu.Disable(itemName)
+    }
+}
+
+BeginExportRun(kind, showMsgBox := true) {
+    if ExportRunState.Busy {
+        msg := Format("無法啟動{1}：目前正在執行{2}", kind, ExportRunState.Kind)
+        LogMsg(msg, "WARN")
+        if showMsgBox
+            MsgBox(msg, "匯出作業進行中", "Icon!")
+        return false
+    }
+    ExportRunState.Busy := true
+    ExportRunState.CancelRequested := false
+    ExportRunState.Kind := kind
+    SetExportUiEnabled(false)
+    return true
+}
+
+RequestExportCancel() {
+    if !ExportRunState.Busy
+        return false
+    ExportRunState.CancelRequested := true
+    LogMsg(Format("使用者要求中止{1}", ExportRunState.Kind), "WARN")
+    return true
+}
+
+EndExportRun() {
+    SetExportUiEnabled(true)
+    ExportRunState.Busy := false
+    ExportRunState.CancelRequested := false
+    ExportRunState.Kind := ""
 }
 
 /**
@@ -49,20 +128,137 @@ GetPopRankDstRoot() {
 }
 
 /**
- * 在輸出目錄中尋找修改時間不早於 sinceTime 的最新 CSV
+ * 取得 CSV 的修改時間、大小與內容雜湊簽章
+ * @param {String} path CSV 完整路徑
+ * @returns {String} 簽章，讀取失敗則回傳空字串
+ */
+GetCsvSignature(path) {
+    try {
+        raw := FileRead(path, "RAW")
+        hash := 2166136261
+        Loop raw.Size {
+            hash := ((hash ^ NumGet(raw, A_Index - 1, "UChar")) * 16777619) & 0xFFFFFFFF
+        }
+        return FileGetTime(path, "M") "|" raw.Size "|" hash
+    } catch {
+        return ""
+    }
+}
+
+CaptureCsvState(outDir) {
+    state := Map()
+    state.CaseSense := false
+    if !DirExist(outDir)
+        return state
+    Loop Files, outDir "\*.csv" {
+        sig := GetCsvSignature(A_LoopFileFullPath)
+        if (sig != "")
+            state[A_LoopFileFullPath] := sig
+    }
+    return state
+}
+
+/**
+ * 批次前將 OUT 目錄既有 CSV 移至可復原備份，避免三竹遇到同名檔時不重新寫入。
+ * @returns {Object} {outDir, stageDir, names}
+ */
+StageExistingCsvs(outDir, kind, backupRoot := "") {
+    state := {outDir: outDir, stageDir: "", names: []}
+    if !DirExist(outDir)
+        return state
+
+    existing := []
+    Loop Files, outDir "\*.csv"
+        existing.Push(A_LoopFileFullPath)
+    if (existing.Length == 0)
+        return state
+
+    if (backupRoot == "")
+        backupRoot := GetRootDir() "\logs\out-backups"
+    safeKind := RegExReplace(kind, "[\\/:*?`"<>|]", "_")
+    stageDir := backupRoot "\" FormatTime(A_Now, "yyyyMMdd_HHmmss") "_" safeKind "_" DllCall("GetCurrentProcessId") "_" A_TickCount
+    DirCreate(stageDir)
+    state.stageDir := stageDir
+
+    try {
+        for src in existing {
+            SplitPath(src, &fileName)
+            FileMove(src, stageDir "\" fileName)
+            state.names.Push(fileName)
+        }
+    } catch as err {
+        FinalizeCsvStage(state)
+        throw Error(Format("暫存既有 CSV 失敗：{1}", err.Message))
+    }
+
+    LogMsg(Format("{1}：已暫存 OUT 目錄既有 CSV 共 {2} 個至 {3}", kind, state.names.Length, stageDir), "INFO")
+    return state
+}
+
+/**
+ * 批次結束後恢復未被新輸出取代的 CSV；同名舊檔保留於備份目錄。
+ * @returns {Integer} 保留於備份目錄的同名舊檔數量
+ */
+FinalizeCsvStage(state) {
+    if !IsObject(state) || state.stageDir == "" || !DirExist(state.stageDir)
+        return 0
+
+    conflicts := 0
+    for fileName in state.names {
+        staged := state.stageDir "\" fileName
+        if !FileExist(staged)
+            continue
+        target := state.outDir "\" fileName
+        if FileExist(target) {
+            conflicts++
+            continue
+        }
+        try FileMove(staged, target)
+        catch as err {
+            conflicts++
+            LogMsg(Format("恢復暫存 CSV 失敗 ({1} → {2}): {3}", staged, target, err.Message), "ERROR")
+        }
+    }
+
+    hasRemaining := false
+    Loop Files, state.stageDir "\*.csv" {
+        hasRemaining := true
+        break
+    }
+    if !hasRemaining {
+        try DirDelete(state.stageDir)
+    } else {
+        LogMsg(Format("同名舊 CSV 已保留於備份目錄：{1}", state.stageDir), "INFO")
+    }
+    return conflicts
+}
+
+/**
+ * 尋找相較於基準快照新增或內容已變更的最新 CSV
+ * 相容舊測試與工具傳入 YYYYMMDDHH24MISS 時間字串。
  * @param {String} outDir 輸出目錄
- * @param {String} sinceTime 起始時間 (YYYYMMDDHH24MISS)
+ * @param {Map|String} sinceOrBaseline CSV 基準快照或起始時間
  * @returns {String} CSV 完整路徑，找不到則回傳空字串
  */
-FindNewCsv(outDir, sinceTime) {
+FindNewCsv(outDir, sinceOrBaseline) {
     if !DirExist(outDir)
         return ""
-    newest := "", newestTime := ""
+    useBaseline := Type(sinceOrBaseline) == "Map"
+    newest := "", newestTime := "", newestCreated := ""
     Loop Files, outDir "\*.csv" {
         t := A_LoopFileTimeModified
-        if (t >= sinceTime && (newest == "" || t > newestTime)) {
+        created := A_LoopFileTimeCreated
+        isCandidate := false
+        if useBaseline {
+            sig := GetCsvSignature(A_LoopFileFullPath)
+            isCandidate := sig != "" && (!sinceOrBaseline.Has(A_LoopFileFullPath) || sinceOrBaseline[A_LoopFileFullPath] != sig)
+        } else {
+            isCandidate := t >= sinceOrBaseline
+        }
+        if (isCandidate && (newest == "" || t > newestTime || (t == newestTime && created > newestCreated))) {
             newest := A_LoopFileFullPath
             newestTime := t
+            newestCreated := created
         }
     }
     return newest
@@ -88,17 +284,30 @@ IsFileReady(path) {
 /**
  * 輪詢輸出目錄直到出現新的 CSV 且寫入完成，或逾時
  * @param {String} outDir 輸出目錄
- * @param {String} sinceTime 起始時間 (YYYYMMDDHH24MISS)
+ * @param {Map|String} sinceOrBaseline CSV 基準快照或相容用起始時間
  * @param {Integer} timeoutMs 逾時毫秒
  * @param {Integer} pollMs 輪詢間隔毫秒
  * @returns {String} CSV 完整路徑，逾時則回傳空字串
  */
-WaitNewCsv(outDir, sinceTime, timeoutMs := 10000, pollMs := 200) {
+WaitNewCsv(outDir, sinceOrBaseline, timeoutMs := 10000, pollMs := 200) {
     deadline := A_TickCount + timeoutMs
+    lastPath := "", lastSig := "", stableCount := 0
     Loop {
-        csv := FindNewCsv(outDir, sinceTime)
-        if (csv != "" && IsFileReady(csv))
-            return csv
+        if IsExportCancelled()
+            return ""
+        csv := FindNewCsv(outDir, sinceOrBaseline)
+        if (csv != "" && IsFileReady(csv)) {
+            sig := GetCsvSignature(csv)
+            if (csv == lastPath && sig != "" && sig == lastSig) {
+                stableCount++
+                if (stableCount >= 2)
+                    return csv
+            } else {
+                lastPath := csv
+                lastSig := sig
+                stableCount := 1
+            }
+        }
         if (A_TickCount >= deadline)
             return ""
         Sleep(pollMs)
@@ -180,11 +389,12 @@ ClickExportBtn(winTitle, res) {
         return true
 
     coords := GetResCoords("ExportButton", 0, 0, res.str)
-    if (coords.x == 0 && coords.y == 0) {
+    if (coords.x <= 0 || coords.y <= 0) {
         LogMsg(Format("資料匯出：圖像未比對到且 [ExportButton] 未設定 {1} 座標", res.str), "WARN")
         return false
     }
-    ClickPoint(coords.x, coords.y, winTitle, false)
+    if !ClickPoint(coords.x, coords.y, winTitle, false)
+        return false
     LogMsg(Format("資料匯出：圖像未比對到，降級採用解析度 [{1}] 座標點擊 (X:{2}, Y:{3})", res.str, coords.x, coords.y), "WARN")
     return true
 }
@@ -218,17 +428,10 @@ TryExportPopRankItem(itemNo, dateStr) {
     }
     Sleep(ExportTiming.DropOpenDelayMs)
 
-    ; 3~5. PageUp × 5 次回首項 → Down × (itemNo-1) → Enter
-    Loop 5 {
-        Send("{PgUp}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Loop itemNo - 1 {
-        Send("{Down}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Sleep(ExportTiming.KeyDelayMs)
-    Send("{Enter}")
+    ; 3~5. PageUp × 5 次回首項 → 獨立 Down 脈衝 × (itemNo-1) → Enter
+    LogMsg(Format("熱門排行 #{1}：下拉導航 PgUp×5、Down×{2}", itemNo, itemNo - 1), "INFO")
+    if !ExecuteDropdownNav(itemNo)
+        return ""
 
     ; 選取後立即移開滑鼠，避免游標停在按鈕上方造成 Hover 影響或干擾畫面
     oldMouse := CoordMode("Mouse", "Client")
@@ -239,7 +442,8 @@ TryExportPopRankItem(itemNo, dateStr) {
     Sleep(ExportTiming.RefreshDelayMs)
 
     ; 7. 點擊資料匯出 (記錄觸發時間以辨識新產生的 CSV；圖像辨識失敗時退回 settings.ini 座標)
-    sinceTime := A_Now
+    outDir := GetExportOutDir("PopularRanking")
+    baseline := CaptureCsvState(outDir)
     if !ClickExportBtn(winTitle, res) {
         LogMsg(Format("熱門排行 #{1}：找不到資料匯出按鈕", itemNo), "WARN")
         ResetPopRankState(winTitle)
@@ -252,9 +456,10 @@ TryExportPopRankItem(itemNo, dateStr) {
     CoordMode("Mouse", oldMouse)
 
     ; 8. 輪詢輸出目錄取得新 CSV
-    outDir := GetExportOutDir("PopularRanking")
-    csv := WaitNewCsv(outDir, sinceTime, ExportTiming.TimeoutMs, ExportTiming.PollMs)
+    csv := WaitNewCsv(outDir, baseline, ExportTiming.TimeoutMs, ExportTiming.PollMs)
     if (csv == "") {
+        if IsExportCancelled()
+            return ""
         LogMsg(Format("熱門排行 #{1}：{2} 毫秒內未在 {3} 偵測到新 CSV", itemNo, ExportTiming.TimeoutMs, outDir), "WARN")
         ResetPopRankState(winTitle)
         return ""
@@ -274,7 +479,8 @@ TryExportPopRankItem(itemNo, dateStr) {
  * @returns {Boolean} 是否成功
  */
 ExportPopRankItem(itemNo, dateStr := "") {
-    if (!IsInteger(itemNo) || itemNo < 1) {
+    total := GetPopRankTotalItems()
+    if (!IsInteger(itemNo) || itemNo < 1 || itemNo > total) {
         LogMsg(Format("熱門排行匯出：項目序號無效 ({1})", itemNo), "ERROR")
         return false
     }
@@ -282,6 +488,8 @@ ExportPopRankItem(itemNo, dateStr := "") {
         dateStr := FormatTime(A_Now, "yyyyMMdd")
 
     Loop ExportTiming.MaxRetries + 1 {
+        if IsExportCancelled()
+            return false
         if (A_Index > 1) {
             LogMsg(Format("熱門排行 #{1}：第 {2} 次重試，先進行狀態重設", itemNo, A_Index - 1), "WARN")
             ResetPopRankState()
@@ -306,6 +514,27 @@ ExportPopRankItem(itemNo, dateStr := "") {
  */
 ExportPopRankAll(showMsgBox := true) {
     total := GetPopRankTotalItems()
+    if !BeginExportRun("熱門排行匯出", showMsgBox)
+        return {total: total, ok: [], failed: [], aborted: true}
+    stageState := ""
+    try {
+        stageState := StageExistingCsvs(GetExportOutDir("PopularRanking"), "熱門排行")
+        return RunExportPopRankAll(showMsgBox)
+    } catch as err {
+        msg := Format("熱門排行匯出中止：{1}", err.Message)
+        LogMsg(msg, "ERROR")
+        if showMsgBox
+            MsgBox(msg, "熱門排行匯出", "Icon!")
+        return {total: total, ok: [], failed: [], aborted: true}
+    } finally {
+        if IsObject(stageState)
+            FinalizeCsvStage(stageState)
+        EndExportRun()
+    }
+}
+
+RunExportPopRankAll(showMsgBox := true) {
+    total := GetPopRankTotalItems()
     result := {total: total, ok: [], failed: [], aborted: false}
 
     ; 前置檢查：解析度與該解析度之圖檔
@@ -323,7 +552,16 @@ ExportPopRankAll(showMsgBox := true) {
     LogMsg(Format("熱門排行匯出開始：共 {1} 項，目的資料夾 {2}\{3}", total, GetPopRankDstRoot(), dateStr), "INFO")
 
     Loop total {
-        if ExportPopRankItem(A_Index, dateStr)
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
+        ok := ExportPopRankItem(A_Index, dateStr)
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
+        if ok
             result.ok.Push(A_Index)
         else
             result.failed.Push(A_Index)
@@ -332,11 +570,11 @@ ExportPopRankAll(showMsgBox := true) {
     failedStr := ""
     for n in result.failed
         failedStr .= (failedStr == "" ? "" : ", ") n
-    summary := Format("熱門排行匯出完成：成功 {1} / {2} 項{3}", result.ok.Length, total
+    summary := Format("熱門排行匯出{1}：成功 {2} / {3} 項{4}", result.aborted ? "已中止" : "完成", result.ok.Length, total
         , result.failed.Length ? "`n失敗項目：" failedStr : "")
-    LogMsg(StrReplace(summary, "`n", "；"), result.failed.Length ? "WARN" : "INFO")
+    LogMsg(StrReplace(summary, "`n", "；"), result.aborted || result.failed.Length ? "WARN" : "INFO")
     if showMsgBox
-        MsgBox(summary, "熱門排行匯出", result.failed.Length ? "Icon!" : "Iconi")
+        MsgBox(summary, "熱門排行匯出", result.aborted || result.failed.Length ? "Icon!" : "Iconi")
     return result
 }
 
@@ -434,18 +672,10 @@ TryExportAfterRankItemL(itemNoL) {
     }
     Sleep(ExportTiming.DropOpenDelayMs)
 
-    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → Down × (itemNoL-1) → Enter
-    Send("{Home}")
-    Loop 5 {
-        Send("{PgUp}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Loop itemNoL - 1 {
-        Send("{Down}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Sleep(ExportTiming.KeyDelayMs)
-    Send("{Enter}")
+    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → 獨立 Down 脈衝 → Enter
+    LogMsg(Format("盤後排行 L#{1}：下拉導航 Home、PgUp×5、Down×{2}", itemNoL, itemNoL - 1), "INFO")
+    if !ExecuteDropdownNav(itemNoL, true)
+        return false
 
     ; 選取後立即移開滑鼠，避免游標停在按鈕上方造成 Hover 影響
     oldMouse := CoordMode("Mouse", "Client")
@@ -464,12 +694,14 @@ TryExportAfterRankItemL(itemNoL) {
  * @returns {Boolean} 是否成功
  */
 ExportAfterRankItemL(itemNoL) {
-    if (!IsInteger(itemNoL) || itemNoL < 1) {
+    if (!IsInteger(itemNoL) || itemNoL < 1 || itemNoL > GetAfterRankTotalItemsL()) {
         LogMsg(Format("盤後排行 L 選取：項目序號無效 ({1})", itemNoL), "ERROR")
         return false
     }
 
     Loop ExportTiming.MaxRetries + 1 {
+        if IsExportCancelled()
+            return false
         if (A_Index > 1) {
             LogMsg(Format("盤後排行 L#{1}：第 {2} 次重試，先進行狀態重設", itemNoL, A_Index - 1), "WARN")
             ResetAfterRankState()
@@ -495,8 +727,8 @@ ExportAfterRankItemL(itemNoL) {
  * 4. Send("{Down}") × (itemNoR - 1)
  * 5. Send("{Enter}")
  * 6. Sleep 等待資料刷新
- * 7. 記錄觸發時間 → FindClickImg("資料匯出.png")
- * 8. 輪詢 OutDir 尋找比觸發時間新的 CSV
+ * 7. 擷取 CSV 基準快照 → FindClickImg("資料匯出.png")
+ * 8. 輪詢 OutDir 尋找相較快照新增或內容已變更的 CSV
  * 9. CopyToDateDir(csv, <專案>\盤後排行, dateStr)
  * @param {Integer} itemNoR 右側項目序號 (1 起算)
  * @param {Integer} itemNoL 所屬左側項目序號 (供日誌記錄，選用)
@@ -527,18 +759,10 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     }
     Sleep(ExportTiming.DropOpenDelayMs)
 
-    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → Down × (itemNoR-1) → Enter
-    Send("{Home}")
-    Loop 5 {
-        Send("{PgUp}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Loop itemNoR - 1 {
-        Send("{Down}")
-        Sleep(ExportTiming.KeyDelayMs)
-    }
-    Sleep(ExportTiming.KeyDelayMs)
-    Send("{Enter}")
+    ; 3~5. 首項歸位 (Home + PgUp 批次防護) → 獨立 Down 脈衝 → Enter
+    LogMsg(Format("盤後排行 {1}：下拉導航 Home、PgUp×5、Down×{2}", tag, itemNoR - 1), "INFO")
+    if !ExecuteDropdownNav(itemNoR, true)
+        return ""
 
     ; 選取後立即移開滑鼠
     oldMouse := CoordMode("Mouse", "Client")
@@ -549,7 +773,8 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     Sleep(ExportTiming.RefreshDelayMs)
 
     ; 7. 點擊資料匯出
-    sinceTime := A_Now
+    outDir := GetExportOutDir("AfterMarketRanking")
+    baseline := CaptureCsvState(outDir)
     if !ClickExportBtn(winTitle, res) {
         LogMsg(Format("盤後排行 {1}：找不到資料匯出按鈕", tag), "WARN")
         ResetAfterRankState(winTitle)
@@ -562,9 +787,10 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     CoordMode("Mouse", oldMouse)
 
     ; 8. 輪詢輸出目錄取得新 CSV
-    outDir := GetExportOutDir("AfterMarketRanking")
-    csv := WaitNewCsv(outDir, sinceTime, ExportTiming.TimeoutMs, ExportTiming.PollMs)
+    csv := WaitNewCsv(outDir, baseline, ExportTiming.TimeoutMs, ExportTiming.PollMs)
     if (csv == "") {
+        if IsExportCancelled()
+            return ""
         LogMsg(Format("盤後排行 {1}：{2} 毫秒內未在 {3} 偵測到新 CSV", tag, ExportTiming.TimeoutMs, outDir), "WARN")
         ResetAfterRankState(winTitle)
         return ""
@@ -586,7 +812,13 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
  */
 ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
     tag := (itemNoL > 0) ? Format("L#{1}-R#{2}", itemNoL, itemNoR) : Format("R#{1}", itemNoR)
-    if (!IsInteger(itemNoR) || itemNoR < 1) {
+    if (!IsInteger(itemNoL) || itemNoL < 0 || itemNoL > GetAfterRankTotalItemsL()) {
+        LogMsg(Format("盤後排行匯出：左側項目序號無效 ({1})", itemNoL), "ERROR")
+        return false
+    }
+    maxR := (IsInteger(itemNoL) && itemNoL >= 1 && itemNoL <= GetAfterRankTotalItemsL())
+        ? GetAfterRankTotalItemsR(itemNoL) : 10
+    if (!IsInteger(itemNoR) || itemNoR < 1 || itemNoR > maxR) {
         LogMsg(Format("盤後排行匯出：項目序號無效 ({1})", tag), "ERROR")
         return false
     }
@@ -594,6 +826,8 @@ ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
         dateStr := FormatTime(A_Now, "yyyyMMdd")
 
     Loop ExportTiming.MaxRetries + 1 {
+        if IsExportCancelled()
+            return false
         if (A_Index > 1) {
             LogMsg(Format("盤後排行 {1}：第 {2} 次重試，先進行狀態重設", tag, A_Index - 1), "WARN")
             ResetAfterRankState()
@@ -619,12 +853,35 @@ ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
 ExportAfterRankAll(showMsgBox := true) {
     totalL := GetAfterRankTotalItemsL()
     totalItems := 0
-    Loop totalL {
+    Loop totalL
         totalItems += GetAfterRankTotalItemsR(A_Index)
+    if !BeginExportRun("盤後排行匯出", showMsgBox)
+        return {total: totalItems, ok: [], failed: [], aborted: true}
+    stageState := ""
+    try {
+        stageState := StageExistingCsvs(GetExportOutDir("AfterMarketRanking"), "盤後排行")
+        return RunExportAfterRankAll(showMsgBox)
+    } catch as err {
+        msg := Format("盤後排行匯出中止：{1}", err.Message)
+        LogMsg(msg, "ERROR")
+        if showMsgBox
+            MsgBox(msg, "盤後排行匯出", "Icon!")
+        return {total: totalItems, ok: [], failed: [], aborted: true}
+    } finally {
+        if IsObject(stageState)
+            FinalizeCsvStage(stageState)
+        EndExportRun()
     }
+}
+
+RunExportAfterRankAll(showMsgBox := true) {
+    totalL := GetAfterRankTotalItemsL()
+    totalItems := 0
+    Loop totalL
+        totalItems += GetAfterRankTotalItemsR(A_Index)
     result := {total: totalItems, ok: [], failed: [], aborted: false}
 
-    ; 前置檢查：主顯示器解析度與圖檔是否齊全 (僅支援 1920x1080，2560x1440 缺圖寫 WARN 日誌並中止)
+    ; 前置檢查：主顯示器解析度與該解析度圖檔是否齊全 (支援 1920x1080 與 2560x1440)
     res := GetRes(0)
     if !ValidatePriRes(showMsgBox) || !HasResAssets(AfterRankAssets(), res.str) {
         msg := Format("盤後排行匯出中止：解析度 {1} 缺少圖檔 (assets\{1}\盤後下拉L.png、盤後下拉R.png、資料匯出.png) 或不支援", res.str)
@@ -639,11 +896,20 @@ ExportAfterRankAll(showMsgBox := true) {
     LogMsg(Format("盤後排行匯出開始：共 {1} 項，目的資料夾 {2}\{3}", totalItems, GetAfterRankDstRoot(), dateStr), "INFO")
 
     Loop totalL {
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
         itemNoL := A_Index
         totalR := GetAfterRankTotalItemsR(itemNoL)
         LogMsg(Format("盤後排行：開始處理左側分類 #{1} (共 {2} 個子項目)", itemNoL, totalR), "INFO")
 
-        if !ExportAfterRankItemL(itemNoL) {
+        leftOk := ExportAfterRankItemL(itemNoL)
+        if IsExportCancelled() {
+            result.aborted := true
+            break
+        }
+        if !leftOk {
             LogMsg(Format("盤後排行：左側分類 #{1} 選取失敗，跳過所屬 {2} 個子項目", itemNoL, totalR), "ERROR")
             Loop totalR {
                 result.failed.Push(Format("L{1}-R{2}", itemNoL, A_Index))
@@ -652,9 +918,18 @@ ExportAfterRankAll(showMsgBox := true) {
         }
 
         Loop totalR {
+            if IsExportCancelled() {
+                result.aborted := true
+                break
+            }
             itemNoR := A_Index
             tag := Format("L{1}-R{2}", itemNoL, itemNoR)
-            if ExportAfterRankItemR(itemNoR, itemNoL, dateStr)
+            rightOk := ExportAfterRankItemR(itemNoR, itemNoL, dateStr)
+            if IsExportCancelled() {
+                result.aborted := true
+                break
+            }
+            if rightOk
                 result.ok.Push(tag)
             else
                 result.failed.Push(tag)
@@ -664,11 +939,10 @@ ExportAfterRankAll(showMsgBox := true) {
     failedStr := ""
     for k in result.failed
         failedStr .= (failedStr == "" ? "" : ", ") k
-    summary := Format("盤後排行匯出完成：成功 {1} / {2} 項{3}", result.ok.Length, result.total
+    summary := Format("盤後排行匯出{1}：成功 {2} / {3} 項{4}", result.aborted ? "已中止" : "完成", result.ok.Length, result.total
         , result.failed.Length ? "`n失敗項目：" failedStr : "")
-    LogMsg(StrReplace(summary, "`n", "；"), result.failed.Length ? "WARN" : "INFO")
+    LogMsg(StrReplace(summary, "`n", "；"), result.aborted || result.failed.Length ? "WARN" : "INFO")
     if showMsgBox
-        MsgBox(summary, "盤後排行匯出", result.failed.Length ? "Icon!" : "Iconi")
+        MsgBox(summary, "盤後排行匯出", result.aborted || result.failed.Length ? "Icon!" : "Iconi")
     return result
 }
-

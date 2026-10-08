@@ -35,8 +35,8 @@ if (arg = "all" || arg == "0") {
     ExitApp(r.failed.Length || r.aborted ? 1 : 0)
 }
 
-if !IsInteger(arg) {
-    MsgBox("項目序號無效：" arg, "熱門排行匯出驗證", "Icon!")
+if !IsInteger(arg) || Integer(arg) < 1 || Integer(arg) > GetPopRankTotalItems() {
+    MsgBox(Format("項目序號無效：{1}，有效範圍為 1~{2}", arg, GetPopRankTotalItems()), "熱門排行匯出驗證", "Icon!")
     ExitApp(1)
 }
 

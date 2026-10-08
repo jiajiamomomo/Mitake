@@ -76,6 +76,16 @@ Test_FindNewCsv_Newest() {
     DirDelete(dir, true)
 }
 
+Test_FindNewCsv_SameSecondTieBreak() {
+    dir := NewTmpDir("same_second")
+    t := FormatTime(A_Now, "yyyyMMddHHmmss")
+    MakeFile(dir "\a_old.csv", t, "old")
+    Sleep(1100)
+    MakeFile(dir "\z_new.csv", t, "new")
+    Assert.AssertEquals(dir "\z_new.csv", FindNewCsv(dir, t), "Same-second CSV tie should prefer the later-created file")
+    DirDelete(dir, true)
+}
+
 Test_WaitNewCsv_Timeout() {
     dir := NewTmpDir("wait")
     future := FormatTime(DateAdd(A_Now, 1, "Days"), "yyyyMMddHHmmss")
@@ -87,6 +97,84 @@ Test_WaitNewCsv_Timeout() {
     MakeFile(dir "\x.csv")
     Assert.AssertEquals(dir "\x.csv", WaitNewCsv(dir, since, 1000, 50), "WaitNewCsv should return existing new CSV")
     DirDelete(dir, true)
+}
+
+Test_CsvSnapshotDetectsSameSecondOverwrite() {
+    dir := NewTmpDir("snapshot_overwrite")
+    path := dir "\same.csv"
+    t := FormatTime(A_Now, "yyyyMMddHHmmss")
+    MakeFile(path, t, "old")
+    baseline := CaptureCsvState(dir)
+
+    f := FileOpen(path, "w", "UTF-8")
+    f.Write("new")
+    f.Close()
+    FileSetTime(t, path, "M")
+
+    Assert.AssertEquals(path, FindNewCsv(dir, baseline), "Snapshot should detect same-name, same-size, same-second content replacement")
+    Assert.AssertEquals(path, WaitNewCsv(dir, baseline, 1000, 50), "WaitNewCsv should return a stable changed file")
+    DirDelete(dir, true)
+}
+
+Test_CsvStagingAvoidsExistingNameConflict() {
+    outDir := NewTmpDir("stage_out")
+    backupRoot := NewTmpDir("stage_backup")
+    MakeFile(outDir "\same.csv", A_Now, "old-same")
+    MakeFile(outDir "\unrelated.csv", A_Now, "keep-me")
+
+    state := StageExistingCsvs(outDir, "熱門排行", backupRoot)
+    Assert.AssertTrue(state.names.Length == 2, "Staging should move every existing top-level CSV")
+    Assert.AssertTrue(!FileExist(outDir "\same.csv"), "Existing conflicting CSV should leave OUT before export")
+    Assert.AssertTrue(FileExist(state.stageDir "\same.csv"), "Existing CSV should remain recoverable in backup")
+
+    MakeFile(outDir "\same.csv", A_Now, "new-same")
+    conflicts := FinalizeCsvStage(state)
+    Assert.AssertEquals(1, conflicts, "Replaced filename should remain preserved as one backup conflict")
+    Assert.AssertEquals("new-same", FileRead(outDir "\same.csv", "UTF-8"), "Newly exported CSV must remain in OUT")
+    Assert.AssertEquals("keep-me", FileRead(outDir "\unrelated.csv", "UTF-8"), "Unrelated staged CSV should be restored")
+    Assert.AssertTrue(FileExist(state.stageDir "\same.csv"), "Superseded original CSV should remain recoverable")
+
+    DirDelete(outDir, true)
+    DirDelete(backupRoot, true)
+}
+
+Test_ExportRunState() {
+    Assert.AssertTrue(BeginExportRun("測試匯出", false), "First export run should acquire the session lock")
+    try {
+        Assert.AssertTrue(IsExportRunActive(), "Export session should report active")
+        Assert.AssertTrue(!BeginExportRun("重疊匯出", false), "Overlapping export run should be rejected")
+        Assert.AssertTrue(RequestExportCancel(), "Active export run should accept cancellation")
+        Assert.AssertTrue(IsExportCancelled(), "Cancellation flag should be visible to loops")
+    } finally {
+        EndExportRun()
+    }
+    Assert.AssertTrue(!IsExportRunActive(), "Export session lock should be released")
+}
+
+Test_ExportItemBounds() {
+    Assert.AssertTrue(!ExportPopRankItem(0), "Popular rank item 0 should be rejected")
+    Assert.AssertTrue(!ExportPopRankItem(GetPopRankTotalItems() + 1), "Popular rank item above configured total should be rejected")
+    Assert.AssertTrue(!ExportAfterRankItemL(GetAfterRankTotalItemsL() + 1), "After-rank left item above configured total should be rejected")
+    Assert.AssertTrue(!ExportAfterRankItemR(11, 1), "After-rank right item above category total should be rejected")
+    Assert.AssertTrue(!ExportAfterRankItemR(1, GetAfterRankTotalItemsL() + 1), "After-rank right export should reject an invalid category")
+}
+
+Test_DropdownNavigationPlan() {
+    first := BuildDropdownNavPlan(1)
+    Assert.AssertEquals(6, first.Length, "First item plan should contain five PageUp pulses and Enter")
+    Assert.AssertEquals("PgUp", first[1], "Popular-rank navigation should start with PageUp")
+    Assert.AssertEquals("Enter", first[first.Length], "Navigation should finish with Enter")
+
+    third := BuildDropdownNavPlan(3)
+    downCount := 0
+    for keyName in third {
+        if (keyName == "Down")
+            downCount++
+    }
+    Assert.AssertEquals(2, downCount, "Third item plan must emit two distinct Down pulses")
+
+    after := BuildDropdownNavPlan(2, true)
+    Assert.AssertEquals("Home", after[1], "After-rank navigation should retain Home as an additional safeguard")
 }
 
 Test_CopyToDateDir() {
@@ -159,7 +247,13 @@ RunExportTests() {
     Test_GetPopRankDstRoot()
     Test_FindNewCsv()
     Test_FindNewCsv_Newest()
+    Test_FindNewCsv_SameSecondTieBreak()
     Test_WaitNewCsv_Timeout()
+    Test_CsvSnapshotDetectsSameSecondOverwrite()
+    Test_CsvStagingAvoidsExistingNameConflict()
+    Test_ExportRunState()
+    Test_ExportItemBounds()
+    Test_DropdownNavigationPlan()
     Test_CopyToDateDir()
     Test_HasResAssets()
     Test_ExportBtnCoords()
@@ -167,4 +261,3 @@ RunExportTests() {
     Test_GetAfterRankDstRoot()
     Test_AfterRankAssets()
 }
-

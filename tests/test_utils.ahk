@@ -7,6 +7,26 @@ Test_GetCfg_DefVal() {
     Assert.AssertEquals("DefaultTestValue", val, "GetCfg should return default value when key does not exist")
 }
 
+Test_EnsureIniEnc_AtomicConversion() {
+    utf8Path := A_Temp "\mitake_utf8_settings.ini"
+    ansiPath := A_Temp "\mitake_ansi_settings.ini"
+    try FileDelete(utf8Path)
+    try FileDelete(ansiPath)
+
+    FileAppend("[測試]`n名稱=三竹`n", utf8Path, "UTF-8-RAW")
+    Assert.AssertTrue(EnsureIniEnc(utf8Path), "UTF-8 INI should convert successfully")
+    utf8Raw := FileRead(utf8Path, "RAW")
+    Assert.AssertTrue(utf8Raw.Size >= 2 && NumGet(utf8Raw, 0, "UChar") == 0xFF && NumGet(utf8Raw, 1, "UChar") == 0xFE, "Converted UTF-8 INI should have UTF-16 LE BOM")
+    Assert.AssertTrue(InStr(FileRead(utf8Path, "UTF-16"), "三竹") > 0, "UTF-8 Chinese content should be preserved")
+
+    FileAppend("[測試]`n名稱=三竹`n", ansiPath, "CP950")
+    Assert.AssertTrue(EnsureIniEnc(ansiPath), "ANSI INI should convert successfully")
+    Assert.AssertTrue(InStr(FileRead(ansiPath, "UTF-16"), "三竹") > 0, "ANSI Chinese content should be preserved")
+
+    FileDelete(utf8Path)
+    FileDelete(ansiPath)
+}
+
 Test_LogMsg() {
     testMsg := "Unit Test Log Message"
     LogMsg(testMsg, "INFO")
@@ -48,6 +68,7 @@ Test_ValidatePriRes() {
 RunUtilsTests() {
     FileAppend("Running Utils Tests...`n", "*")
     Test_GetCfg_DefVal()
+    Test_EnsureIniEnc_AtomicConversion()
     Test_LogMsg()
     Test_GetRes()
     Test_GetAllRes()

@@ -1,0 +1,237 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "b623971786d57e6b0a8a4608ee069c9f3c09a8a9",
+  "generatedAt": "2026-10-08T15:16:04.865Z",
+  "files": {
+    "ABBREVIATIONS.md": {
+      "filePath": "ABBREVIATIONS.md",
+      "contentHash": "21b460ffcb421017849a5b87c7b4454b8bbed6b622843ae812baa65127dc25b1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 121,
+      "hasStructuralAnalysis": false
+    },
+    "After Rank Export Spec.md": {
+      "filePath": "After Rank Export Spec.md",
+      "contentHash": "b0d70f1fa8e5daa2b8ce03543f27c8bba69acc99a9559958373a0b8a73752cfa",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 139,
+      "hasStructuralAnalysis": false
+    },
+    "Mitake.ahk": {
+      "filePath": "Mitake.ahk",
+      "contentHash": "b917e0971373926cd17ea01f331c9abda08c941971023ae27d0f2755d26e1762",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 92,
+      "hasStructuralAnalysis": false
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "c2fd34bbc2c4bda77e591d0843cb5c0a921fe92e7abc6f20a5d6c087e32f8292",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 3,
+      "hasStructuralAnalysis": false
+    },
+    "agents.md": {
+      "filePath": "agents.md",
+      "contentHash": "000c39b8dfb133b9daeda85a55e39b69caa860d2f46b774492efc276bf61ca78",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 185,
+      "hasStructuralAnalysis": false
+    },
+    "bypass.bat": {
+      "filePath": "bypass.bat",
+      "contentHash": "c7487d797c5c7ccdb1fb4881aefb0918d4e0d831d82d5bebc10c4403d6b200c1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "config/settings.ini": {
+      "filePath": "config/settings.ini",
+      "contentHash": "bbe63a7b74137d9c8bcc436e2639a273dc7f8d35eac4588d8bb50c28d7fe12ec",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 64,
+      "hasStructuralAnalysis": false
+    },
+    "lib/export.ahk": {
+      "filePath": "lib/export.ahk",
+      "contentHash": "2ad46a5877dc4e469dc35c1f11e390c1f943d8eeecf203c572eb7e9ddeb9870a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 675,
+      "hasStructuralAnalysis": false
+    },
+    "lib/utils.ahk": {
+      "filePath": "lib/utils.ahk",
+      "contentHash": "b1b4e6550a4124fb01a40469937e431b01593e92d43bb9136c9a30e9384031be",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 187,
+      "hasStructuralAnalysis": false
+    },
+    "lib/window_control.ahk": {
+      "filePath": "lib/window_control.ahk",
+      "contentHash": "ec19978dbe08f63a0ce297afd8e78feeef153141a8692971abf1ef26f59f9da3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 589,
+      "hasStructuralAnalysis": false
+    },
+    "pop_rank_export_spec.md": {
+      "filePath": "pop_rank_export_spec.md",
+      "contentHash": "1d0aede452cd6e26e724cb519ec3bf9a5dac3f0fe43ad61a745bce04bb2e7ea8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 124,
+      "hasStructuralAnalysis": false
+    },
+    "prompt.md": {
+      "filePath": "prompt.md",
+      "contentHash": "e485e4fa456e63f825af5a505b1d5c9c5197382d1ae067cce6b3a9c960ab6035",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2271,
+      "hasStructuralAnalysis": false
+    },
+    "tests/capture_asset.ahk": {
+      "filePath": "tests/capture_asset.ahk",
+      "contentHash": "6ed0484ed0987294243257182d4cbcfb5b22badfc0adc9e61eec5bbd8b1fec60",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 69,
+      "hasStructuralAnalysis": false
+    },
+    "tests/diagnose_export_btn.ahk": {
+      "filePath": "tests/diagnose_export_btn.ahk",
+      "contentHash": "0bdbb3fadf1103a249557c6057e7ec35d428355ae74df2627d0faa0976190c51",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 125,
+      "hasStructuralAnalysis": false
+    },
+    "tests/diagnose_export_btn_Read Me.txt": {
+      "filePath": "tests/diagnose_export_btn_Read Me.txt",
+      "contentHash": "c43d5870b563b8225930c7741997f62759323f08d6e728941bff9c2536b7261d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 24,
+      "hasStructuralAnalysis": false
+    },
+    "tests/helpers/assert.ahk": {
+      "filePath": "tests/helpers/assert.ahk",
+      "contentHash": "22db80d717f7c03688ddf13fe2e2a8b26e7c3c8436a4304de2c14b4774cea17a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 54,
+      "hasStructuralAnalysis": false
+    },
+    "tests/run_tests.ahk": {
+      "filePath": "tests/run_tests.ahk",
+      "contentHash": "59e2c4f37a03908692507a7a8b299cac48c31a1d7a97e88a69f6d89c1afd3f72",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": false
+    },
+    "tests/test_after_rank_export.ahk": {
+      "filePath": "tests/test_after_rank_export.ahk",
+      "contentHash": "4e2edbde61bfffc4a0296a98c1b6b70ad91e77e1408d6108becf3eca2ed8a7ee",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 114,
+      "hasStructuralAnalysis": false
+    },
+    "tests/test_coords_click.ahk": {
+      "filePath": "tests/test_coords_click.ahk",
+      "contentHash": "9eec3e664a37d4875cae12d37b6b983684cde764e6c6079d21471c3d5f64a190",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 117,
+      "hasStructuralAnalysis": false
+    },
+    "tests/test_export.ahk": {
+      "filePath": "tests/test_export.ahk",
+      "contentHash": "d2c886e1d26329561b81d8e5b44bc5cc2bfcc8cf88a793d2ba7d9aa24da57c3c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 171,
+      "hasStructuralAnalysis": false
+    },
+    "tests/test_pop_rank_export.ahk": {
+      "filePath": "tests/test_pop_rank_export.ahk",
+      "contentHash": "19a77455458255a9876e4d8d36913b9d29b1b2aa90a7f8e5b1d098f783a098b1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": false
+    },
+    "tests/test_utils.ahk": {
+      "filePath": "tests/test_utils.ahk",
+      "contentHash": "2dc954ea3d2d18115253ae0974e502c5e76f22cc697ee658da592d8767257234",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 57,
+      "hasStructuralAnalysis": false
+    },
+    "tests/test_window_control.ahk": {
+      "filePath": "tests/test_window_control.ahk",
+      "contentHash": "f8e732031a7bd81d4da82a4019525c2355d23e70ab3ecba18883bb4889efc152",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 235,
+      "hasStructuralAnalysis": false
+    }
+  }
+}
