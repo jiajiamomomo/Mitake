@@ -113,7 +113,8 @@ Test_CopyToDateDir() {
 Test_HasResAssets() {
     names := ["熱門下拉.png", "資料匯出.png"]
     Assert.AssertTrue(HasResAssets(names, "1920x1080"), "1920x1080 export assets should exist")
-    Assert.AssertTrue(!HasResAssets(names, "2560x1440"), "2560x1440 export assets should be reported missing")
+    Assert.AssertTrue(HasResAssets(names, "2560x1440"), "2560x1440 export assets should exist")
+    Assert.AssertTrue(!HasResAssets(names, "3840x2160"), "3840x2160 export assets should be reported missing")
     Assert.AssertTrue(!HasResAssets(["不存在.png"], "1920x1080"), "Missing asset should be reported")
 }
 
@@ -147,7 +148,8 @@ Test_AfterRankAssets() {
     Assert.AssertEquals("盤後下拉R.png", assets[2], "Second asset should be 盤後下拉R.png")
     Assert.AssertEquals("資料匯出.png", assets[3], "Third asset should be 資料匯出.png")
     Assert.AssertTrue(HasResAssets(assets, "1920x1080"), "1920x1080 should have all AfterRankAssets")
-    Assert.AssertTrue(!HasResAssets(assets, "2560x1440"), "2560x1440 should report missing AfterRankAssets")
+    Assert.AssertTrue(HasResAssets(assets, "2560x1440"), "2560x1440 should have all AfterRankAssets")
+    Assert.AssertTrue(!HasResAssets(assets, "3840x2160"), "3840x2160 should report missing AfterRankAssets")
 }
 
 RunExportTests() {

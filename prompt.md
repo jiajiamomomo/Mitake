@@ -20,8 +20,12 @@ Source Tree:
 │   │   └── 資料匯出.png
 │   └── 2560x1440
 │       ├── menu_證券行情.png
+│       ├── 熱門下拉.png
 │       ├── 熱門排行.png
-│       └── 盤後排行.png
+│       ├── 盤後下拉L.png
+│       ├── 盤後下拉R.png
+│       ├── 盤後排行.png
+│       └── 資料匯出.png
 ├── bypass.bat
 ├── config
 │   └── settings.ini
@@ -164,65 +168,103 @@ Source Tree:
 `After Rank Export Spec.md`:
 
 ```md
-# 盤後排行全項目匯出：設計共識
+# 盤後排行全項目匯出：規格與設計說明書
 
-## 範圍
-- 「盤後排行」大致沿用「熱門排行」架構，部分有不同（盤後下拉L/R.png 已備）。
-- 僅支援 **1920x1080**；2560x1440 缺圖時寫 WARN 日誌並中止。
+## 1. 範圍與目標
+- 本規格定義針對三竹股市電腦版「證券行情」→「盤後排行」功能之全項目自動化匯出作業。
+- 介面包含二維階層式下拉選單：左側大分類清單（`盤後下拉L.png`）與右側子項目清單（`盤後下拉R.png`）。
+- **解析度支援**：支援 **1920x1080** 與 **2560x1440**（圖檔均已備妥於 `assets/1920x1080/` 與 `assets/2560x1440/` 目錄）；於其他未支援之解析度或缺少必要圖檔時，自動寫入 WARN 日誌並中止流程。
 
-## 前置條件（已就緒）
-- 關聯程式已指向 [bypass.bat](file:///d:/DJC/TEST/三竹/bypass.bat)，但三竹仍會開啟EXCEL →  Excel 仍會搶焦點。
-- 左邊的下拉清單 '盤後下拉L.png' 共有5個項目:法人動向、資券當沖、證券借貨、經營指標、布局配置。
-- 右邊的下拉清單 '盤後下拉R.png' 項目數量不一。
+---
 
-| 中文項目 | 英文縮寫 | 完整英文對照 | 右邊清單數量 |
-| :--- | :--- | :--- | :--- |
-| 法人動向 | INST | Institutional Flows / Activity | 10 |
-| 資券當沖 | M&DT | Margin & Day Trading | 10 |
-| 證券借貸 | SBL | Securities Borrowing & Lending | 4 |
-| 經營指標 | FIN / KPI | Financials / Metrics | 8 |
-| 布局配置 | ALLOC | Asset Allocation / Strategy | 4 |
+## 2. 前置條件與外部環境
+1. **外部關聯程式攔截**：
+   - 系統關聯應用已配置指向 [`bypass.bat`](file:///d:/DJC/TEST/三竹/bypass.bat) 以快速關閉外部程序。
+   - 三竹在觸發「資料匯出」後仍可能非同步喚醒 Excel 或第三方應用奪取前台焦點；腳本在各子項目操作起點均防禦性調用 [`SwitchToAfterRankWin()`](file:///d:/DJC/TEST/三竹/lib/window_control.ahk) 確保三竹視窗取得前景控制權。
+2. **輸出路徑**：
+   - 三竹匯出原始 CSV 預設輸出至 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
+3. **二維分類項目結構**：
+   - 左側下拉清單（`盤後下拉L.png`）固定 5 個大分類。
+   - 右側下拉清單（`盤後下拉R.png`）之子項目數量依分類而異（共 36 項）：
 
-- 三竹會把匯出檔寫到 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
+| 分類序號 (L) | 中文項目 | 英文縮寫 | 完整英文對照 | 右側子項目數量 (R) |
+| :---: | :--- | :---: | :--- | :---: |
+| 1 | 法人動向 | INST | Institutional Flows / Activity | 10 |
+| 2 | 資券當沖 | M&DT | Margin & Day Trading | 10 |
+| 3 | 證券借貸 | SBL | Securities Borrowing & Lending | 4 |
+| 4 | 經營指標 | FIN / KPI | Financials / Metrics | 8 |
+| 5 | 布局配置 | ALLOC | Asset Allocation / Strategy | 4 |
 
-## 模組 `lib/export.ahk`
+---
 
-### `ExportAfterRankItemL(itemNoL)`：單一項目
-1. `SwitchToAfterRankWin()`：切換到「盤後排行」並最大化
-2. `FindClickImg("盤後下拉L.png")`：搜尋範圍為整個工作區
-3. `Send("{Home}")`
-4. `Send("{Down}")` × (itemNoL − 1)
-5. `Send("{Enter}")`
-6. `Sleep`，等資料刷新（寫死在程式中）
+## 3. 模組設計 (`lib/export.ahk`)
 
-任何一步失敗 → 整個 `ExportAfterRankItemL` 最多重試 **2 次**。
+### 3.1 時序與流程常數 (`ExportTiming`)
+程式內建寫死之時序配置（避免非必要配置膨脹）：
+- `RefreshDelayMs` (1500 ms)：Enter 選取項目後等待介面資料刷新。
+- `DropOpenDelayMs` (300 ms)：點擊下拉箭頭後等待清單浮層展開渲染。
+- `KeyDelayMs` (30 ms)：方向鍵導航之按鍵間隔。
+- `TimeoutMs` (10000 ms)：輪詢 OUT 目錄取得新 CSV 檔案之逾時上限。
+- `PollMs` (200 ms)：輪詢檔案存在與讀取鎖定之檢查間隔。
+- `MaxRetries` (2 次)：單一項目失敗時之最多重試次數。
 
-### `ExportAfterRankItemR(itemNoR)`：單一項目
-2. `FindClickImg("盤後下拉R.png")`：搜尋範圍為整個工作區
-3. `Send("{Home}")`
-4. `Send("{Down}")` × (itemNoR − 1)
-5. `Send("{Enter}")`
-6. `Sleep`，等資料刷新（寫死在程式中）
-7. 記錄觸發時間 → `FindClickImg("資料匯出.png")`
-8. 輪詢 OutDir，找出比觸發時間新的 CSV（逾時與輪詢間隔都寫死在程式中）
-9. `CopyToDateDir(csv, <專案>\盤後排行)` → `盤後排行\YYYYMMDD\<原始檔名>`，同名就覆蓋
+### 3.2 視窗狀態復原常式 (`ResetAfterRankState`)
+- 目標視窗：`GetAfterRankWinTitle()`（預設 "盤後排行"）。
+- 送出 `{Esc}` 鍵強制關閉任何展開中之自繪浮動選單。
+- 將滑鼠游標移至視窗客戶區角落 `(10, 10)`，清除按鈕之 Hover 高亮狀態。
 
-任何一步失敗 → 整個 `ExportAfterRankItemR` 最多重試 **2 次**。
+### 3.3 左側分類項目選取 (`ExportAfterRankItemL`)
+- **函式簽名**：`ExportAfterRankItemL(itemNoL)`（失敗自動重試最多 2 次，重試前執行 `ResetAfterRankState()`）。
+- **單次流程 (`TryExportAfterRankItemL`)**：
+  1. `ResetAfterRankState()` 重設視窗狀態。
+  2. `SwitchToAfterRankWin()`：切換至「盤後排行」視窗並最大化。
+  3. `FindClickImg("盤後下拉L.png", ...)`：於全客戶區搜尋左側下拉箭頭（色彩容許度 variation 45）並點擊。
+  4. 等待 300 ms 浮層展開。
+  5. 鍵盤導航歸位：發送 `{Home}`，並連續發送 5 次 `{PgUp}`（防護自繪清單忽略 Home 缺陷），確保游標歸至首項。
+  6. 發送 `{Down}` × `(itemNoL - 1)` 移至目標分類。
+  7. 發送 `{Enter}` 選取，並將滑鼠移至 `(10, 10)` 清除 Hover。
+  8. 等待 1500 ms 介面刷新資料。
 
-### `ExportAfterRankAll(showMsgBox := true)`：批次
-- 外迴圈跑 `itemNoL := 1..TotalItemsL`
-- 內迴圈跑 `itemNoR := 1..TotalItemsR`
-- 日期資料夾在批次開始時決定一次（`A_Now`），整批共用
-- 所有步驟都寫進 `logs/app.log`
-- 完成後跳出 MsgBox 摘要（`showMsgBox := false` 時不跳，供無頭測試使用）
+### 3.4 右側子項目匯出 (`ExportAfterRankItemR`)
+- **函式簽名**：`ExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "")`（失敗自動重試最多 2 次）。
+- **單次流程 (`TryExportAfterRankItemR`)**：
+  1. `ResetAfterRankState()` 重設視窗狀態。
+  2. `SwitchToAfterRankWin()`：防禦性奪回視窗焦點（避免外部 Excel 搶焦點）。
+  3. `FindClickImg("盤後下拉R.png", ...)`：搜尋右側下拉箭頭並點擊。
+  4. 等待 300 ms 浮層展開。
+  5. 鍵盤導航歸位：發送 `{Home}` + 連續 5 次 `{PgUp}`，隨後發送 `{Down}` × `(itemNoR - 1)`，最後 `{Enter}` 確認選取。
+  6. 滑鼠移至 `(10, 10)` 清除 Hover，等待 1500 ms 介面刷新。
+  7. 記錄觸發時間 `sinceTime := A_Now`。
+  8. `ClickExportBtn()` 點擊「資料匯出」按鈕（優先圖像搜尋 `資料匯出.png`，失敗降級採用 `settings.ini` 之 `[ExportButton]` 座標），點擊後立即移開滑鼠。
+  9. `WaitNewCsv(outDir, sinceTime)` 輪詢 OUT 目錄尋找新產生的 CSV 且確認檔案寫入完成（`IsFileReady`）。
+  10. `CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)`：複製覆蓋至 `<專案>\盤後排行\YYYYMMDD\<原始檔名>`。
 
-### 純函式（無頭單元測試）
-- `FindNewCsv(outDir, sinceTime)`：找出最新且晚於 `sinceTime` 的 CSV，找不到則回傳 `""`
-- `CopyToDateDir(src, dstRoot, dateStr)`：視需要建立 `dstRoot\dateStr\`，再以覆蓋模式複製
+### 3.5 批次全項目匯出 (`ExportAfterRankAll`)
+- **函式簽名**：`ExportAfterRankAll(showMsgBox := true)`。
+- **前置驗證**：
+  - 檢驗主顯示器解析度（支援 1920x1080 與 2560x1440）與該解析度下之必備圖檔（`盤後下拉L.png`、`盤後下拉R.png`、`資料匯出.png`）。
+  - 若解析度不符或圖檔缺失，記錄 WARN 日誌並中止（`aborted := true`）。
+- **日期目錄決定**：批次開始時決定一次 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用。
+- **巢狀執行與失敗熔斷**：
+  - 外迴圈走訪分類 `itemNoL := 1..TotalItemsL` (5)。
+  - 若外層分類 `itemNoL` 選取失敗：實施**立即熔斷 (Circuit Breaking)**，跳過該分類底下的所有子項目，並將其全部子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單，避免級聯式的盲目重試。
+  - 內迴圈走訪所屬子項目 `itemNoR := 1..TotalItemsR{L}`。
+- **摘要回報**：
+  - 全程記錄於 `logs/app.log`。
+  - 依 `showMsgBox` 決定是否彈出最終統計摘要（成功數 / 總數，失敗項目清單）。
 
-## 設定（`settings.ini`，UTF-16 LE）
+---
+
+## 4. 設定檔結構 (`config/settings.ini`，UTF-16 LE)
+
 ```ini
 [AfterMarketRanking]
+ClickX_1920x1080 = 78
+ClickY_1920x1080 = 110
+ClickX_2560x1440 = 78
+ClickY_2560x1440 = 110
+ClickX = 78
+ClickY = 110
 TotalItemsL = 5
 TotalItemsR1 = 10
 TotalItemsR2 = 10
@@ -231,18 +273,39 @@ TotalItemsR4 = 8
 TotalItemsR5 = 4
 OutDir = D:\Program Files\MitakeGU\USER\OUT
 
+[ExportButton]
+ClickX_1920x1080 = 1777
+ClickY_1920x1080 = 50
+
 [Hotkey]
-AfterRankExportHotkey =
+AfterRankExportHotkey = 
 ```
-延遲、逾時、重試次數都寫死在程式中。
 
-## 進入點
-- 托盤選單「匯出盤後排行」，加上熱鍵 `AfterRankExportHotkey`（預設留空），沿用現有的表驅動註冊方式。
+---
 
-## 測試
-- `tests/test_export.ahk`：用暫存目錄測 `FindNewCsv`、`CopyToDateDir`，以及讀取 `TotalItems` 的預設值，並加入 `run_tests.ahk`。
-- 手動實機驗證腳本：`tests/test_after_rank_export.ahk`（實際點擊，可只跑單一項目或整批）。
-- 更新 `ABBREVIATIONS.md` 與 AGENTS.md 的 Roadmap 及目錄結構。
+## 5. 進入點整合 (`Mitake.ahk`)
+- **系統托盤選單 (Tray Menu)**：
+  - 加入「匯出盤後排行」（`A_TrayMenu.Add("匯出盤後排行", (*) => ExportAfterRankAll())`）。
+- **快捷鍵表驅動註冊**：
+  - 註冊項：`{cfg: "AfterRankExportHotkey", def: "", desc: "匯出盤後排行", hnd: (*) => ExportAfterRankAll()}`。
+
+---
+
+## 6. 測試與驗證
+
+1. **無頭自動化測試 (`tests/test_export.ahk` / `tests/run_tests.ahk`)**：
+   - 驗證 `GetAfterRankTotalItemsL()` 預設值與設定檔讀取（5）。
+   - 驗證 `GetAfterRankTotalItemsR(1..5)` 各分類數量（10, 10, 4, 8, 4）。
+   - 驗證 `GetAfterRankDstRoot()` 目的目錄。
+   - 驗證 `AfterRankAssets()` 圖資清單與多解析度存在性檢查。
+   - 驗證 `FindNewCsv`、`WaitNewCsv` 與 `CopyToDateDir` 之純邏輯隔離測試。
+2. **手動實機驗證工具 (`tests/test_after_rank_export.ahk`)**：
+   - 支援安全緊急中止熱鍵：`$Esc`。
+   - 參數彈性：
+     - `0` 或 `all`：執行全項目批次匯出。
+     - `L R` / `L,R` / `L-R`：執行特定分類下的指定子項目（例如 `1,3` 執行分類 1 之子項目 3）。
+     - `L`（1~5）：執行指定分類下的所有子項目（例如 `2` 執行分類 2 的所有 10 項）。
+     - 未帶參數時彈出互動式 `InputBox` 供使用者輸入。
 
 ```
 `Mitake.ahk`:
@@ -386,37 +449,42 @@ MenuShowResHnd(*) {
 
 ---
 
-## 預計專案結構 (Directory Structure)
+## 專案結構 (Directory Structure)
 
 ```text
 三竹/
-├── README.md             # 專案初始化與說明文件
-├── AGENTS.md             # 專案 AI Agent 指引與規範文件
-├── ABBREVIATIONS.md      # 變數與函式命名縮寫對照表
-├── Mitake.ahk            # 主程式進入點 (Main entry)
-├── assets/               # 圖像辨識與圖資目錄
-│   ├── 1920x1080/        # 1920x1080 解析度圖檔目錄
-│   └── 2560x1440/        # 2560x1440 解析度圖檔目錄
-├── config/               # 設定檔目錄
-│   └── settings.ini      # 專案參數與設定檔
-├── lib/                  # 模組與函式庫 (功能模組)
-│   ├── window_control.ahk # 三竹股市視窗控制模組
-│   ├── export.ahk        # 熱門排行/盤後排行匯出模組 (CSV 輪詢與複製)
-│   └── utils.ahk         # 通用工具函式 (如 Log、提示訊息等)
-├── tests/                # 測試目錄 (TDD 測試案例與 Test Runner)
-│   ├── run_tests.ahk     # 自動化測試執行器入口
-│   ├── test_utils.ahk    # utils.ahk 單元測試集
+├── README.md                 # 專案初始化與說明文件
+├── AGENTS.md                 # 專案 AI Agent 指引與規範文件
+├── ABBREVIATIONS.md          # 變數與函式命名縮寫對照表
+├── pop_rank_export_spec.md   # 熱門排行匯出規格與設計共識文件
+├── After Rank Export Spec.md # 盤後排行匯出規格與設計說明書
+├── prompt.md                 # AI 提詞與專案程式碼快照 (code2prompt 產生)
+├── Mitake.ahk                # 主程式進入點 (Main entry)
+├── assets/                   # 圖像辨識與圖資目錄 (支援 1920x1080 / 2560x1440)
+│   ├── 1920x1080/            # 1920x1080 解析度圖檔 (下拉箭頭、選單、資料匯出等)
+│   └── 2560x1440/            # 2560x1440 解析度圖檔 (下拉箭頭、選單、資料匯出等)
+├── config/                   # 設定檔目錄
+│   └── settings.ini          # 專案參數與設定檔 (UTF-16 LE)
+├── lib/                      # 模組與函式庫 (功能模組)
+│   ├── window_control.ahk    # 三竹股市視窗控制與圖像搜尋模組
+│   ├── export.ahk            # 熱門排行/盤後排行匯出模組 (CSV 輪詢與複製)
+│   └── utils.ahk             # 通用工具函式 (Log、編碼維護、解析度取得等)
+├── tests/                    # 測試與驗證目錄 (TDD 測試案例、實機工具與 Test Runner)
+│   ├── run_tests.ahk         # 自動化測試執行器入口 (無頭測試回歸閘門)
+│   ├── test_utils.ahk        # utils.ahk 單元測試集
 │   ├── test_window_control.ahk # window_control.ahk 單元測試集
-│   ├── test_export.ahk   # export.ahk 無頭單元測試集 (暫存目錄)
+│   ├── test_export.ahk       # export.ahk 無頭單元測試集 (暫存目錄測試)
 │   ├── test_pop_rank_export.ahk # 熱門排行匯出手動實機驗證腳本
 │   ├── test_after_rank_export.ahk # 盤後排行匯出手動實機驗證腳本
-│   └── helpers/          # 測試輔助模組 (如 Assert 斷言庫)
+│   ├── test_coords_click.ahk # 實機座標校正與 ToolTip 浮動標籤提示工具
+│   ├── capture_asset.ahk     # 介面資產截圖輔助腳本
+│   ├── diagnose_export_btn.ahk # 資料匯出按鈕點擊診斷腳本
+│   └── helpers/              # 測試輔助模組 (斷言庫)
 │       └── assert.ahk
-├── bypass.bat            # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
-├── logs/                 # 執行日誌輸出
-├── 熱門排行/             # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
-└── 盤後排行/             # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
-
+├── bypass.bat                # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
+├── logs/                     # 執行日誌輸出 (app.log 等)
+├── 熱門排行/                 # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
+└── 盤後排行/                 # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
 ```
 
 ---
@@ -424,9 +492,8 @@ MenuShowResHnd(*) {
 ## 核心功能規劃 (Roadmap & Feature List)
 
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
-- [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。
-- [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。
-
+- [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
+- [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
 
 ---
 
@@ -2077,58 +2144,128 @@ SwitchToAfterRankWin(timeout := 5) {
 `pop_rank_export_spec.md`:
 
 ```md
-# 熱門排行全項目匯出：設計共識
+# 熱門排行全項目匯出：規格與設計說明 (Popular Ranking Export Spec)
 
-## 範圍
-- 先做「熱門排行」；「盤後排行」之後沿用同一架構（盤後下拉L/R.png 已備）。
-- 僅支援 **1920x1080**；2560x1440 缺圖時寫 WARN 日誌並中止。
+## 一、 範圍與目標 (Scope & Objectives)
+- 自動化批次匯出三竹股市「證券行情」→「熱門排行」下拉清單內之所有項目（共 **44** 項）。
+- 支援主顯示器解析度 **1920x1080**（2560x1440 缺圖時記錄 WARN 日誌並中止）。
+- 架構與模式作為後續「盤後排行」全項目匯出之基礎設計規範。
 
-## 前置條件（已就緒）
-- 三竹的關聯程式指向 [bypass.bat](file:///d:/DJC/TEST/三竹/bypass.bat)，會立即結束 → 不會自動開 Excel 搶焦點。
-- 三竹會把匯出檔寫到 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_漲停鎖住.csv`）。
+---
 
-## 新模組 `lib/export.ahk`
+## 二、 前置條件與環境 (Prerequisites)
+1. **防搶焦點機制**：三竹之資料匯出關聯程式設定指向 [bypass.bat](file:///d:/DJC/TEST/三竹/bypass.bat)，該批次檔啟動後立即結束退出，防止系統自動開啟 Excel 奪取前台焦點。
+2. **匯出暫存目錄**：三竹股市預設匯出 CSV 路徑為 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_漲停鎖住.csv`）。
+3. **專案存放目的地**：`<專案根目錄>\熱門排行\YYYYMMDD\<原始檔名>.csv`。
 
-### `ExportPopRankItem(itemNo)`：單一項目
-1. `SwitchToPopRankWin()`：切換到「熱門排行」並最大化
-2. `FindClickImg("熱門下拉.png")`：搜尋範圍為整個工作區
-3. `Send("{Home}")`
-4. `Send("{Down}")` × (itemNo − 1)
-5. `Send("{Enter}")`
-6. `Sleep`，等資料刷新（寫死在程式中）
-7. 記錄觸發時間 → `FindClickImg("資料匯出.png")`
-8. 輪詢 OutDir，找出比觸發時間新的 CSV（逾時與輪詢間隔都寫死在程式中）
-9. `CopyToDateDir(csv, <專案>\熱門排行)` → `熱門排行\YYYYMMDD\<原始檔名>`，同名就覆蓋
+---
 
-任何一步失敗 → 整個 `ExportPopRankItem` 最多重試 **2 次**。
+## 三、 時序與核心參數 (`ExportTiming`)
 
-### `ExportPopRankAll(showMsgBox := true)`：批次
-- 迴圈跑 `itemNo := 1..TotalItems`
-- 日期資料夾在批次開始時決定一次（`A_Now`），整批共用
-- 所有步驟都寫進 `logs/app.log`
-- 完成後跳出 MsgBox 摘要（`showMsgBox := false` 時不跳，供無頭測試使用）
+所有時序與重試參數集中定義於 `ExportTiming` 類別常數：
 
-### 純函式（無頭單元測試）
-- `FindNewCsv(outDir, sinceTime)`：找出最新且晚於 `sinceTime` 的 CSV，找不到則回傳 `""`
-- `CopyToDateDir(src, dstRoot, dateStr)`：視需要建立 `dstRoot\dateStr\`，再以覆蓋模式複製
+| 參數名稱 | 數值 | 說明 |
+| :--- | :--- | :--- |
+| `RefreshDelayMs` | 1500 ms | Enter 選取下拉項目後，等待三竹介面資料刷新之緩衝時間 |
+| `DropOpenDelayMs` | 300 ms | 點擊下拉箭頭後，等待自繪下拉選單浮層渲染展開之延遲 |
+| `KeyDelayMs` | 30 ms | 鍵盤方向鍵 (`Down` / `PgUp`) 連續發送之間隔延遲 |
+| `TimeoutMs` | 10000 ms | 輪詢三竹輸出新 CSV 檔案之最長逾時時間 |
+| `PollMs` | 200 ms | 輪詢輸出目錄之週期檢查間隔 |
+| `MaxRetries` | 2 次 | 單一項目若未成功匯出，最多自動重試次數（連同初次共最多執行 3 次） |
 
-## 設定（`settings.ini`，UTF-16 LE）
+---
+
+## 四、 核心執行流程
+
+### 1. 單一項目匯出：`TryExportPopRankItem(itemNo, dateStr)`
+每個項目的完整處理工序如下：
+1. **狀態防禦復原 (`ResetPopRankState`)**：
+   - 確保目標視窗已取得焦點。
+   - 送出 `{Esc}` 強制關閉任何前次殘留之自繪下拉浮層。
+   - 將滑鼠游標移至視窗客戶端左上角空白區 `(10, 10)`，清除控制項之滑鼠停懸高亮狀態（Hover Clear）。
+2. **切換並鎖定視窗 (`SwitchToPopRankWin`)**：
+   - 切換至「熱門排行」視窗並最大化；若未開啟則透過主選單路徑自動開啟。
+   - 延遲 `DropOpenDelayMs` (300 ms)。
+3. **點擊下拉箭頭 (`FindClickImg`)**：
+   - 搜尋資產圖檔 `assets/{解析度}/熱門下拉.png`（容許度 `variation := 45`）。
+   - 命中後點擊展開自繪下拉選單，並延遲 `DropOpenDelayMs` (300 ms)。
+4. **鍵盤導航選取**：
+   - **首項歸位**：三竹自繪選單不支援標準 Win32 `{Home}` 鍵，改為發送 5 次 `Send("{PgUp}")` 向上翻頁確保游標穩定歸位至第 1 項。
+   - **遞增定位**：發送 `(itemNo - 1)` 次 `Send("{Down}")`，定位至目標項目。
+   - **確認選取**：發送 `Send("{Enter}")` 套用選取。
+   - **解除停懸**：選取後立即將滑鼠游標移至客戶端 `(10, 10)`。
+5. **等待資料刷新**：
+   - 等待 `RefreshDelayMs` (1500 ms)，確保報表資料重新載入完成。
+6. **點擊「資料匯出」(`ClickExportBtn`)**：
+   - 記錄觸發起始時間戳記 `sinceTime := A_Now`。
+   - **優先圖像辨識**：搜尋 `assets/{解析度}/資料匯出.png`（容許度 `variation := 45`），找到即點擊。
+   - **座標備援機制**：若圖像比對未命中，自動讀取 `config/settings.ini` 中 `[ExportButton]` 區段之解析度座標（1920x1080 預設為 `X=1777, Y=50`）降級點擊；若未設定座標則安全中止並記錄 WARN 日誌。
+   - 點擊後再次將游標移至 `(10, 10)` 避免 Hover 影響後續比對。
+7. **輪詢捕捉新 CSV (`WaitNewCsv`)**：
+   - 在 `outDir` 輪詢修改時間不早於 `sinceTime` 之最新 CSV 檔案。
+   - 透過 `IsFileReady(csv)`（嘗試獨佔唯讀開啟）確保三竹已完全釋放寫入鎖定。
+   - 逾時 `TimeoutMs` (10 秒) 或檔案未就緒則回傳失敗。
+8. **歸檔複製 (`CopyToDateDir`)**：
+   - 將檔案複製至 `<專案根目錄>\熱門排行\<dateStr>\<原始檔名>.csv`（保留原檔名，同名覆蓋）。
+
+### 2. 單項重試封裝：`ExportPopRankItem(itemNo, dateStr := "")`
+- 驗證序號合法性（必須為 $\ge 1$ 之整數）。
+- 進入迴圈執行 `TryExportPopRankItem`，最多自動重試 `MaxRetries` (2) 次。
+- 每次重試前主動調用 `ResetPopRankState()` 並插入 300 ms 間隔，確保復原至乾淨基準環境。
+
+### 3. 批次全項目匯出：`ExportPopRankAll(showMsgBox := true)`
+- 讀取設定檔之項目總數 `TotalItems`（預設為 **44**）。
+- 批次啟動前取得統一日期字串 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用同一個歸檔子目錄。
+- 依序迴圈 `itemNo := 1 .. TotalItems` 執行單項匯出。
+- 即時累計成功與失敗清單，所有執行歷程輸出至 [logs/app.log](file:///d:/DJC/TEST/三竹/logs/app.log)。
+- 結束時顯示摘要訊息方塊（可透過 `showMsgBox := false` 抑制彈窗，供無頭測試與背景自動化使用）。
+
+---
+
+## 五、 設定檔規範 (`config/settings.ini`)
+
+設定檔採 **UTF-16 LE with BOM** 編碼格式維護：
+
 ```ini
 [PopularRanking]
-TotalItems = 25
+ClickX_1920x1080 = 77
+ClickY_1920x1080 = 80
+ClickX_2560x1440 = 78
+ClickY_2560x1440 = 80
+ClickX = 77
+ClickY = 80
+TotalItems = 44
 OutDir = D:\Program Files\MitakeGU\USER\OUT
+
+[ExportButton]
+ClickX_1920x1080 = 1777
+ClickY_1920x1080 = 50
 
 [Hotkey]
 PopRankExportHotkey =
 ```
-延遲、逾時、重試次數都寫死在程式中。
 
-## 進入點
-- 托盤選單「匯出熱門排行」，加上熱鍵 `PopRankExportHotkey`（預設留空），沿用現有的表驅動註冊方式。
+---
 
-## 測試
-- `tests/test_export.ahk`：用暫存目錄測 `FindNewCsv`、`CopyToDateDir`，以及讀取 `TotalItems` 的預設值，並加入 `run_tests.ahk`。
-- 手動實機驗證腳本：`tests/test_pop_rank_export.ahk`（實際點擊，可只跑單一項目或整批）。
-- 更新 `ABBREVIATIONS.md` 與 AGENTS.md 的 Roadmap 及目錄結構。
+## 六、 進入點與操作方式
+
+1. **系統托盤選單 (Tray Menu)**：點擊「匯出熱門排行」直接啟動批次作業。
+2. **自訂全域熱鍵**：可於 `settings.ini` 之 `[Hotkey]` 設定 `PopRankExportHotkey`。
+3. **實機手動測試工具**：執行 [tests/test_pop_rank_export.ahk](file:///d:/DJC/TEST/三竹/tests/test_pop_rank_export.ahk)。
+   - 按 `F9`：執行單一項目手動測試（預設 Item 1）。
+   - 按 `F10`：執行完整批次 44 項自動匯出測試。
+   - 按 `$Esc`：強制中斷正在執行的測試流程（使用鍵盤 hook 避免與內部 `Send("{Esc}")` 重設狀態互相干擾）。
+
+---
+
+## 七、 測試與驗證體系
+
+1. **無頭自動化單元測試**：[tests/test_export.ahk](file:///d:/DJC/TEST/三竹/tests/test_export.ahk)
+   - 透過暫存目錄驗證 `FindNewCsv`、`WaitNewCsv`、`CopyToDateDir`、`IsFileReady`。
+   - 驗證 `GetPopRankTotalItems` 預設值 (44) 與自訂讀取、`HasResAssets`、`PopRankAssets` 等純邏輯。
+   - 整合於 [tests/run_tests.ahk](file:///d:/DJC/TEST/三竹/tests/run_tests.ahk) 全域測試套件。
+2. **實機診斷與校正工具**：
+   - [tests/diagnose_export_btn.ahk](file:///d:/DJC/TEST/三竹/tests/diagnose_export_btn.ahk)：驗證「資料匯出」圖像比對、座標計算與滑鼠平滑移動校正。
+   - [tests/capture_asset.ahk](file:///d:/DJC/TEST/三竹/tests/capture_asset.ahk)：截取與更新按鈕與箭頭純淨圖檔資產。
 
 ```

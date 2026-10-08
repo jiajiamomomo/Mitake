@@ -33,37 +33,42 @@
 
 ---
 
-## 預計專案結構 (Directory Structure)
+## 專案結構 (Directory Structure)
 
 ```text
 三竹/
-├── README.md             # 專案初始化與說明文件
-├── AGENTS.md             # 專案 AI Agent 指引與規範文件
-├── ABBREVIATIONS.md      # 變數與函式命名縮寫對照表
-├── Mitake.ahk            # 主程式進入點 (Main entry)
-├── assets/               # 圖像辨識與圖資目錄
-│   ├── 1920x1080/        # 1920x1080 解析度圖檔目錄
-│   └── 2560x1440/        # 2560x1440 解析度圖檔目錄
-├── config/               # 設定檔目錄
-│   └── settings.ini      # 專案參數與設定檔
-├── lib/                  # 模組與函式庫 (功能模組)
-│   ├── window_control.ahk # 三竹股市視窗控制模組
-│   ├── export.ahk        # 熱門排行/盤後排行匯出模組 (CSV 輪詢與複製)
-│   └── utils.ahk         # 通用工具函式 (如 Log、提示訊息等)
-├── tests/                # 測試目錄 (TDD 測試案例與 Test Runner)
-│   ├── run_tests.ahk     # 自動化測試執行器入口
-│   ├── test_utils.ahk    # utils.ahk 單元測試集
+├── README.md                 # 專案初始化與說明文件
+├── AGENTS.md                 # 專案 AI Agent 指引與規範文件
+├── ABBREVIATIONS.md          # 變數與函式命名縮寫對照表
+├── pop_rank_export_spec.md   # 熱門排行匯出規格與設計共識文件
+├── After Rank Export Spec.md # 盤後排行匯出規格與設計說明書
+├── prompt.md                 # AI 提詞與專案程式碼快照 (code2prompt 產生)
+├── Mitake.ahk                # 主程式進入點 (Main entry)
+├── assets/                   # 圖像辨識與圖資目錄 (支援 1920x1080 / 2560x1440)
+│   ├── 1920x1080/            # 1920x1080 解析度圖檔 (下拉箭頭、選單、資料匯出等)
+│   └── 2560x1440/            # 2560x1440 解析度圖檔 (下拉箭頭、選單、資料匯出等)
+├── config/                   # 設定檔目錄
+│   └── settings.ini          # 專案參數與設定檔 (UTF-16 LE)
+├── lib/                      # 模組與函式庫 (功能模組)
+│   ├── window_control.ahk    # 三竹股市視窗控制與圖像搜尋模組
+│   ├── export.ahk            # 熱門排行/盤後排行匯出模組 (CSV 輪詢與複製)
+│   └── utils.ahk             # 通用工具函式 (Log、編碼維護、解析度取得等)
+├── tests/                    # 測試與驗證目錄 (TDD 測試案例、實機工具與 Test Runner)
+│   ├── run_tests.ahk         # 自動化測試執行器入口 (無頭測試回歸閘門)
+│   ├── test_utils.ahk        # utils.ahk 單元測試集
 │   ├── test_window_control.ahk # window_control.ahk 單元測試集
-│   ├── test_export.ahk   # export.ahk 無頭單元測試集 (暫存目錄)
+│   ├── test_export.ahk       # export.ahk 無頭單元測試集 (暫存目錄測試)
 │   ├── test_pop_rank_export.ahk # 熱門排行匯出手動實機驗證腳本
 │   ├── test_after_rank_export.ahk # 盤後排行匯出手動實機驗證腳本
-│   └── helpers/          # 測試輔助模組 (如 Assert 斷言庫)
+│   ├── test_coords_click.ahk # 實機座標校正與 ToolTip 浮動標籤提示工具
+│   ├── capture_asset.ahk     # 介面資產截圖輔助腳本
+│   ├── diagnose_export_btn.ahk # 資料匯出按鈕點擊診斷腳本
+│   └── helpers/              # 測試輔助模組 (斷言庫)
 │       └── assert.ahk
-├── bypass.bat            # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
-├── logs/                 # 執行日誌輸出
-├── 熱門排行/             # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
-└── 盤後排行/             # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
-
+├── bypass.bat                # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
+├── logs/                     # 執行日誌輸出 (app.log 等)
+├── 熱門排行/                 # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
+└── 盤後排行/                 # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
 ```
 
 ---
@@ -71,9 +76,8 @@
 ## 核心功能規劃 (Roadmap & Feature List)
 
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
-- [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。
-- [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。
-
+- [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
+- [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
 
 ---
 
