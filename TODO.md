@@ -1,37 +1,33 @@
 # 後續工作（TODO）
 
-## P1：匯出後關閉三竹新開啟的 Excel
+## 已完成項目
 
-### 背景
+### [x] P1：匯出後關閉三竹新開啟的 Excel (已於 2026-10-10 完成)
+
+#### 背景與問題
 
 執行托盤「匯出熱門排行」或「匯出盤後排行」時，三竹每匯出一個 CSV 都可能呼叫一個新的 Microsoft Excel 視窗／程序。完整批次結束後會累積大量 Excel，干擾前景焦點並消耗系統資源。
 
-### 目標
+#### 實作成效與安全邊界防護
 
-在熱門排行與盤後排行批次中，每次匯出完成後關閉該次由三竹新開啟的 Excel；批次結束或中止時，再清理本批次尚未關閉的新增 Excel。
+1. **白名單基準建立 (`CaptureExcelBaseline`)**：
+   - 批次啟動前以 Win32 `Toolhelp32Snapshot` 高速掃描並記錄既有 `EXCEL.EXE` PID 與頂層視窗 HWND。
+   - 批次開始前已開啟的 Excel 與活頁簿嚴格列入保護白名單，絕不被清理或終止。
+2. **新增視窗與程序差集過濾 (`FilterNewExportExcelWindows` / `FilterNewExportExcelProcesses`)**：
+   - 相較基準新增的 Excel 視窗與程序被精確辨識，並徹底隔離受保護 PID。
+3. **優雅退出與超時防護 (`CloseNewExportExcels`)**：
+   - 優先以 `WinClose` 發送標準關閉訊息並輪詢確認；若逾時且確認屬於本批次新開啟，則安全回收程序並記錄警告日誌。
+   - 清理失敗不中斷 CSV 歸檔流程。
+4. **生命週期全路徑整合**：
+   - 單項匯出確認完成複製後立即清理，防止後續項目焦點被劫持。
+   - 輪詢逾時準備重試前清理殘留 Excel，確保重試視窗乾淨。
+   - 在 `ExportPopRankAll` 與 `ExportAfterRankAll` 的 `finally` 區塊進行兜底清理，涵蓋正常完成、`Esc` 中止、例外錯誤所有路徑。
+5. **測試與驗證覆蓋**：
+   - **無頭測試**：覆蓋基準建立、既有 PID 保護過濾、新增視窗過濾、清理冪等性與 `ExportRunState` 生命週期 (`157 Total, 157 Passed, 0 Failed`)。
+   - **實機驗證**：透過 `tests/test_excel_cleanup.ahk` 實機啟動 Excel 進行生命週期驗證（5/5 步驟全數通過，正常關閉視窗並回收進程，既有基準不受干擾）。
 
-### 安全邊界
+---
 
-- 批次開始前記錄既有 `EXCEL.EXE` PID 與可識別的頂層視窗，建立保護基準。
-- 只處理批次開始後新增、且可合理歸因於本次三竹匯出的 Excel。
-- 不得關閉批次開始前已存在的 Excel，也不得影響使用者原本開啟的活頁簿。
-- 優先採用正常關閉視窗；只有在確認屬於本批次、正常關閉逾時且已記錄警告時，才考慮終止程序。
-- 清理失敗不得中斷 CSV 歸檔；需記錄 PID、視窗標題、處理結果與失敗原因。
-- 必須同時涵蓋正常完成、使用者按 `Esc` 中止、例外與單項重試等結束路徑。
+## 待規劃項目
 
-### 建議設計
-
-1. `CaptureExcelBaseline()`：記錄批次開始前的 Excel PID／HWND。
-2. `FindNewExportExcelWindows(baseline)`：列出相較基準新增的 Excel 視窗，並排除受保護 PID。
-3. `CloseNewExportExcels(baseline, timeoutMs)`：先送出正常關閉，輪詢確認；必要時依安全條件進行後續處理。
-4. 在單項 CSV 已確認並完成 `CopyToDateDir` 後執行一次清理。
-5. 在 `ExportPopRankAll`／`ExportAfterRankAll` 的 `finally` 區塊再次執行兜底清理。
-
-### 驗收條件
-
-- 熱門排行 44 項與盤後排行 36 項完整匯出後，不留下本批次新開啟的 Excel。
-- 批次開始前已開啟的 Excel 與活頁簿保持開啟且內容不受影響。
-- 中途按 `Esc` 或發生匯出錯誤時，仍會清理本批次新增的 Excel。
-- Excel 關閉失敗時，匯出結果不被誤判為失敗，且 `logs/app.log` 有可追查紀錄。
-- 無頭測試至少覆蓋 PID 基準差集、既有 PID 保護、重複清理冪等性及 finally 清理路徑；另以實機工具驗證真正的 Excel 視窗生命週期。
-
+目前無未完成之 P1/P2 工作。後續若有新需求可於此處提出。

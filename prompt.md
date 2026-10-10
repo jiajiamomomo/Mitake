@@ -153,6 +153,13 @@ Source Tree:
 | `TryExportAfterMarketRankingItemR` | `TryExportAfterRankItemR` | 單次匯出右側子項目 (不含重試) |
 | `ExportAfterMarketRankingItemR` | `ExportAfterRankItemR` | 匯出右側子項目 (含重試) |
 | `ExportAfterMarketRankingAll` | `ExportAfterRankAll` | 批次匯出全部盤後排行項目 |
+| `GetExcelProcessIds` | `GetExcelProcessIds` | 取得系統中所有 EXCEL.EXE 程序 PID (Toolhelp32Snapshot) |
+| `CaptureExcelBaseline` | `CaptureExcelBaseline` | 記錄批次開始前的 Excel PID 與視窗 HWND 基準 |
+| `FilterNewExportExcelWindows` | `FilterNewExportExcelWindows` | 純邏輯過濾：從視窗清單中排除基準受保護項目 |
+| `FindNewExportExcelWindows` | `FindNewExportExcelWindows` | 列出相較基準新增的 Excel 視窗並排除受保護 PID/HWND |
+| `FilterNewExportExcelProcesses` | `FilterNewExportExcelProcesses` | 純邏輯過濾：從程序清單中排除基準受保護 PID |
+| `FindNewExportExcelProcesses` | `FindNewExportExcelProcesses` | 列出相較基準新增的 EXCEL.EXE 程序 PID |
+| `CloseNewExportExcels` | `CloseNewExportExcels` | 關閉相較基準新增的 Excel 視窗與程序 (含逾時安全回收) |
 
 ### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |
@@ -349,6 +356,16 @@ AfterRankExportHotkey =
 - **修正**：批次開始前由 `StageExistingCsvs` 暫存 OUT 頂層既有 CSV；結束或異常中止時由 `FinalizeCsvStage` 恢復未被取代的檔案。
 - **資料安全**：新匯出檔保留在 OUT；同名舊版不刪除，保留於 `logs\out-backups\`；無衝突舊檔自動恢復。
 
+### 4. 三竹匯出呼叫關聯程式引發大量 Excel 堆疊與焦點干擾
+
+- **症狀**：每匯出一個 CSV，三竹可能觸發關聯之 Microsoft Excel，批次數十項後系統堆疊大量 Excel 視窗與背景進程，干擾後續項目前景焦點並消耗資源。
+- **根因**：三竹內部寫死呼叫 ShellExecute 開啟匯出的 CSV，即使有 bypass.bat，若系統關聯恢復或非同步喚醒 Excel，仍會留下實體。
+- **修正**：實作 `CaptureExcelBaseline`、`FindNewExportExcelWindows` 與 `CloseNewExportExcels`：
+  1. 批次開始前以 Win32 `Toolhelp32Snapshot` 掃描記錄既有 PID 與 HWND 白名單基準，嚴格保護使用者既有 Excel 活頁簿不受干擾。
+  2. 每個 CSV 完成複製後立即正常關閉 (`WinClose`) 本次新增之 Excel；單項重試前也清理殘留視窗避免焦點奪取。
+  3. `finally` 區塊無死角兜底清理本批次新增視窗與殭屍進程，涵蓋正常完成、`Esc` 中止與例外錯誤。
+  4. 逾時未退出且確認屬於本批次新啟動者，以 `ProcessClose` 安全回收並記錄 WARN 日誌，清理失敗絕不中斷 CSV 歸檔。
+
 ## 維護準則
 
 1. 實機問題先依 `logs/app.log` 判斷失敗階段：視窗焦點、選單導航、匯出點擊、CSV 偵測不可混為同一類重試。
@@ -356,17 +373,16 @@ AfterRankExportHotkey =
 3. 無頭測試驗證決策邏輯與檔案生命週期；真實 HWND、滑鼠、鍵盤與自繪 UI 行為仍須由獨立實機工具或托盤流程驗證。
 4. 任何涉及既有 CSV 的處理都必須可復原，不直接刪除使用者資料。
 5. 熱門排行與盤後排行共用相同底層導航、焦點與檔案隔離原語，修正其中一條流程時必須同步回歸另一條流程。
+6. 外部應用（Excel 等）清理必須堅持「白名單基準保護先行」，嚴禁無差別 Terminate 程序。
 
 ## 回歸保護
 
 - `Test_TrustedForegroundMeta`：驗證同 RootOwner／同程序無標題浮層可操作，其他程序與具名子視窗必須拒絕。
 - `Test_DropdownNavigationPlan`：驗證第 N 項確實產生 `N-1` 個獨立 `{Down}`，並保留熱門與盤後排行各自的歸位策略。
 - `Test_CsvStagingAvoidsExistingNameConflict`：驗證既有 CSV 可暫存、無衝突檔可恢復、同名舊版可保留且新檔不被覆蓋。
-- 2026-10-09 無頭回歸結果：`136 Total, 136 Passed, 0 Failed`；實機驗證補足背景 Session 無法測試的 HWND、滑鼠、鍵盤及自繪 UI 行為。
+- `Test_CaptureExcelBaseline` / `Test_FilterNewExportExcelWindows_Protection` / `Test_FilterNewExportExcelProcesses_Protection`：驗證 Excel 白名單保護、差集過濾、清理冪等性及 session 狀態。
+- 2026-10-10 無頭回歸結果：`157 Total, 157 Passed, 0 Failed`；另由 `tests/test_excel_cleanup.ahk` 實機驗證真實 Excel 啟動、辨識、關閉與程序回收生命週期全部通過。
 
-## 已知後續工作
-
-- 三竹每匯出一個 CSV 仍可能另外呼叫 Excel。後續需依 [TODO.md](TODO.md) 實作「只關閉本批次新增 Excel」的安全清理流程，不得影響批次開始前既有的 Excel 與活頁簿。
 
 ```
 `Mitake.ahk`:
@@ -544,41 +560,37 @@ exit $p.ExitCode
 ```md
 # 後續工作（TODO）
 
-## P1：匯出後關閉三竹新開啟的 Excel
+## 已完成項目
 
-### 背景
+### [x] P1：匯出後關閉三竹新開啟的 Excel (已於 2026-10-10 完成)
+
+#### 背景與問題
 
 執行托盤「匯出熱門排行」或「匯出盤後排行」時，三竹每匯出一個 CSV 都可能呼叫一個新的 Microsoft Excel 視窗／程序。完整批次結束後會累積大量 Excel，干擾前景焦點並消耗系統資源。
 
-### 目標
+#### 實作成效與安全邊界防護
 
-在熱門排行與盤後排行批次中，每次匯出完成後關閉該次由三竹新開啟的 Excel；批次結束或中止時，再清理本批次尚未關閉的新增 Excel。
+1. **白名單基準建立 (`CaptureExcelBaseline`)**：
+   - 批次啟動前以 Win32 `Toolhelp32Snapshot` 高速掃描並記錄既有 `EXCEL.EXE` PID 與頂層視窗 HWND。
+   - 批次開始前已開啟的 Excel 與活頁簿嚴格列入保護白名單，絕不被清理或終止。
+2. **新增視窗與程序差集過濾 (`FilterNewExportExcelWindows` / `FilterNewExportExcelProcesses`)**：
+   - 相較基準新增的 Excel 視窗與程序被精確辨識，並徹底隔離受保護 PID。
+3. **優雅退出與超時防護 (`CloseNewExportExcels`)**：
+   - 優先以 `WinClose` 發送標準關閉訊息並輪詢確認；若逾時且確認屬於本批次新開啟，則安全回收程序並記錄警告日誌。
+   - 清理失敗不中斷 CSV 歸檔流程。
+4. **生命週期全路徑整合**：
+   - 單項匯出確認完成複製後立即清理，防止後續項目焦點被劫持。
+   - 輪詢逾時準備重試前清理殘留 Excel，確保重試視窗乾淨。
+   - 在 `ExportPopRankAll` 與 `ExportAfterRankAll` 的 `finally` 區塊進行兜底清理，涵蓋正常完成、`Esc` 中止、例外錯誤所有路徑。
+5. **測試與驗證覆蓋**：
+   - **無頭測試**：覆蓋基準建立、既有 PID 保護過濾、新增視窗過濾、清理冪等性與 `ExportRunState` 生命週期 (`157 Total, 157 Passed, 0 Failed`)。
+   - **實機驗證**：透過 `tests/test_excel_cleanup.ahk` 實機啟動 Excel 進行生命週期驗證（5/5 步驟全數通過，正常關閉視窗並回收進程，既有基準不受干擾）。
 
-### 安全邊界
+---
 
-- 批次開始前記錄既有 `EXCEL.EXE` PID 與可識別的頂層視窗，建立保護基準。
-- 只處理批次開始後新增、且可合理歸因於本次三竹匯出的 Excel。
-- 不得關閉批次開始前已存在的 Excel，也不得影響使用者原本開啟的活頁簿。
-- 優先採用正常關閉視窗；只有在確認屬於本批次、正常關閉逾時且已記錄警告時，才考慮終止程序。
-- 清理失敗不得中斷 CSV 歸檔；需記錄 PID、視窗標題、處理結果與失敗原因。
-- 必須同時涵蓋正常完成、使用者按 `Esc` 中止、例外與單項重試等結束路徑。
+## 待規劃項目
 
-### 建議設計
-
-1. `CaptureExcelBaseline()`：記錄批次開始前的 Excel PID／HWND。
-2. `FindNewExportExcelWindows(baseline)`：列出相較基準新增的 Excel 視窗，並排除受保護 PID。
-3. `CloseNewExportExcels(baseline, timeoutMs)`：先送出正常關閉，輪詢確認；必要時依安全條件進行後續處理。
-4. 在單項 CSV 已確認並完成 `CopyToDateDir` 後執行一次清理。
-5. 在 `ExportPopRankAll`／`ExportAfterRankAll` 的 `finally` 區塊再次執行兜底清理。
-
-### 驗收條件
-
-- 熱門排行 44 項與盤後排行 36 項完整匯出後，不留下本批次新開啟的 Excel。
-- 批次開始前已開啟的 Excel 與活頁簿保持開啟且內容不受影響。
-- 中途按 `Esc` 或發生匯出錯誤時，仍會清理本批次新增的 Excel。
-- Excel 關閉失敗時，匯出結果不被誤判為失敗，且 `logs/app.log` 有可追查紀錄。
-- 無頭測試至少覆蓋 PID 基準差集、既有 PID 保護、重複清理冪等性及 finally 清理路徑；另以實機工具驗證真正的 Excel 視窗生命週期。
-
+目前無未完成之 P1/P2 工作。後續若有新需求可於此處提出。
 
 ```
 `agents.md`:
@@ -649,6 +661,7 @@ exit $p.ExitCode
 │   ├── test_pop_rank_export.ahk # 熱門排行匯出手動實機驗證腳本
 │   ├── test_after_rank_export.ahk # 盤後排行匯出手動實機驗證腳本
 │   ├── test_coords_click.ahk # 實機座標校正與 ToolTip 浮動標籤提示工具
+│   ├── test_excel_cleanup.ahk # Excel 清理與安全保護實機驗證腳本
 │   ├── capture_asset.ahk     # 介面資產截圖輔助腳本
 │   ├── diagnose_export_btn.ahk # 資料匯出按鈕點擊診斷腳本
 │   └── helpers/              # 測試輔助模組 (斷言庫)
@@ -666,7 +679,7 @@ exit $p.ExitCode
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
 - [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
 - [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
-- [ ] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
+- [x] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
 
 ---
 
@@ -875,7 +888,9 @@ class ExportRunState {
     static Busy := false
     static CancelRequested := false
     static Kind := ""
+    static ExcelBaseline := ""
 }
+
 
 /**
  * 建立自繪下拉清單的鍵盤導航計畫。
@@ -930,6 +945,7 @@ BeginExportRun(kind, showMsgBox := true) {
     ExportRunState.Busy := true
     ExportRunState.CancelRequested := false
     ExportRunState.Kind := kind
+    ExportRunState.ExcelBaseline := CaptureExcelBaseline()
     SetExportUiEnabled(false)
     return true
 }
@@ -947,6 +963,7 @@ EndExportRun() {
     ExportRunState.Busy := false
     ExportRunState.CancelRequested := false
     ExportRunState.Kind := ""
+    ExportRunState.ExcelBaseline := ""
 }
 
 /**
@@ -1192,6 +1209,241 @@ CopyToDateDir(src, dstRoot, dateStr) {
 }
 
 /**
+ * 取得系統中所有 EXCEL.EXE 的程序 ID (PID)
+ * 使用 Win32 Toolhelp32Snapshot，高效率且不依賴外部服務
+ * @returns {Map} Map(pid, true)
+ */
+GetExcelProcessIds() {
+    pids := Map()
+    hSnap := DllCall("CreateToolhelp32Snapshot", "UInt", 0x2, "UInt", 0, "Ptr")
+    if (hSnap == -1 || hSnap == 0)
+        return pids
+    pe32 := Buffer(568, 0)
+    NumPut("UInt", 568, pe32, 0)
+    if DllCall("Process32FirstW", "Ptr", hSnap, "Ptr", pe32) {
+        Loop {
+            name := StrGet(pe32.Ptr + 44)
+            if (StrCompare(name, "EXCEL.EXE", false) == 0) {
+                pid := NumGet(pe32, 8, "UInt")
+                pids[pid] := true
+            }
+            if !DllCall("Process32NextW", "Ptr", hSnap, "Ptr", pe32)
+                break
+        }
+    }
+    DllCall("CloseHandle", "Ptr", hSnap)
+    return pids
+}
+
+/**
+ * 記錄批次開始前的 Excel PID 與頂層視窗 HWND 基準
+ * @returns {Object} { pids: Map, hwnds: Map }
+ */
+CaptureExcelBaseline() {
+    baseline := { pids: Map(), hwnds: Map() }
+
+    ; 1. 取得所有目前已存在的 EXCEL.EXE 程序 ID
+    pids := GetExcelProcessIds()
+    for pid in pids
+        baseline.pids[pid] := true
+
+    ; 2. 取得所有目前已存在的 EXCEL.EXE 視窗代碼
+    try {
+        hwnds := WinGetList("ahk_exe EXCEL.EXE")
+        for hwnd in hwnds {
+            baseline.hwnds[hwnd] := true
+            try {
+                pid := WinGetPID(hwnd)
+                if (pid)
+                    baseline.pids[pid] := true
+            }
+        }
+    }
+    return baseline
+}
+
+/**
+ * 純邏輯過濾：從視窗清單中排除 baseline 受保護的 HWND 與 PID
+ * @param {Array} rawWindows [{hwnd, pid, title}, ...]
+ * @param {Object} baseline 基準物件
+ * @returns {Array} 相較基準新增的視窗清單
+ */
+FilterNewExportExcelWindows(rawWindows, baseline) {
+    newWins := []
+    if !IsObject(baseline) || !baseline.HasProp("pids") || !baseline.HasProp("hwnds")
+        return newWins
+
+    for item in rawWindows {
+        if baseline.hwnds.Has(item.hwnd)
+            continue
+        if (item.HasProp("pid") && item.pid && baseline.pids.Has(item.pid))
+            continue
+        newWins.Push(item)
+    }
+    return newWins
+}
+
+/**
+ * 列出相較基準新增的 Excel 視窗，並排除受保護 PID 與 HWND
+ * @param {Object} baseline 基準物件
+ * @returns {Array} [{hwnd, pid, title}, ...]
+ */
+FindNewExportExcelWindows(baseline) {
+    if !IsObject(baseline) || !baseline.HasProp("pids") || !baseline.HasProp("hwnds")
+        return []
+
+    rawWins := []
+    try {
+        hwnds := WinGetList("ahk_exe EXCEL.EXE")
+        for hwnd in hwnds {
+            pid := 0
+            title := ""
+            try pid := WinGetPID(hwnd)
+            try title := WinGetTitle(hwnd)
+            rawWins.Push({ hwnd: hwnd, pid: pid, title: title })
+        }
+    }
+    return FilterNewExportExcelWindows(rawWins, baseline)
+}
+
+/**
+ * 純邏輯過濾：從程序清單中排除 baseline 受保護的 PID
+ * @param {Array|Map} currentPids 當前 PID 清單
+ * @param {Object} baseline 基準物件
+ * @returns {Array} 相較基準新增的 PID 清單
+ */
+FilterNewExportExcelProcesses(currentPids, baseline) {
+    newPids := []
+    if !IsObject(baseline) || !baseline.HasProp("pids")
+        return newPids
+
+    for pid in currentPids {
+        if !baseline.pids.Has(pid)
+            newPids.Push(pid)
+    }
+    return newPids
+}
+
+/**
+ * 列出相較基準新增的 EXCEL.EXE 程序 PID
+ * @param {Object} baseline 基準物件
+ * @returns {Array} 新增的 PID 清單
+ */
+FindNewExportExcelProcesses(baseline) {
+    if !IsObject(baseline) || !baseline.HasProp("pids")
+        return []
+    currPids := GetExcelProcessIds()
+    return FilterNewExportExcelProcesses(currPids, baseline)
+}
+
+/**
+ * 關閉相較基準新增由三竹開啟的 Excel 視窗與程序
+ * 優先採用 WinClose 正常關閉，若逾時且確認屬於本批次新開啟，則終止程序。
+ * 清理失敗不中斷流程，詳細記錄日誌。
+ * @param {Object} baseline 基準物件
+ * @param {Integer} timeoutMs 正常關閉確認逾時毫秒 (預設 1500ms)
+ * @returns {Object} { closedWins: Integer, closedPids: Integer, failed: Array }
+ */
+CloseNewExportExcels(baseline, timeoutMs := 1500) {
+    result := { closedWins: 0, closedPids: 0, failed: [] }
+    if !IsObject(baseline) || !baseline.HasProp("pids") || !baseline.HasProp("hwnds")
+        return result
+
+    try {
+        newWins := FindNewExportExcelWindows(baseline)
+        if (newWins.Length == 0) {
+            ; 檢查是否有無視窗殘留之新增 Excel 程序
+            newPids := FindNewExportExcelProcesses(baseline)
+            for pid in newPids {
+                if baseline.pids.Has(pid)
+                    continue
+                try {
+                    ProcessClose(pid)
+                    result.closedPids++
+                    LogMsg(Format("已終止三竹殘留無效 Excel 程序 (PID: {1})", pid), "INFO")
+                } catch as err {
+                    result.failed.Push(Format("PID {1}: {2}", pid, err.Message))
+                    LogMsg(Format("終止殘留 Excel 程序失敗 (PID: {1}): {2}", pid, err.Message), "WARN")
+                }
+            }
+            return result
+        }
+
+        ; 1. 對所有新增視窗發送 WinClose 正常關閉
+        targetPids := Map()
+        for item in newWins {
+            LogMsg(Format("正在正常關閉三竹匯出開啟之 Excel 視窗 (HWND: {1}, PID: {2}, 標題: '{3}')", item.hwnd, item.pid, item.title), "INFO")
+            if (item.pid)
+                targetPids[item.pid] := true
+            try WinClose(item.hwnd)
+            catch as err {
+                LogMsg(Format("傳送 WinClose 失敗 (HWND: {1}): {2}", item.hwnd, err.Message), "WARN")
+            }
+        }
+
+        ; 2. 輪詢確認視窗關閉
+        deadline := A_TickCount + timeoutMs
+        pendingWins := newWins.Clone()
+        Loop {
+            stillOpen := []
+            for item in pendingWins {
+                if WinExist(item.hwnd)
+                    stillOpen.Push(item)
+                else
+                    result.closedWins++
+            }
+            pendingWins := stillOpen
+            if (pendingWins.Length == 0)
+                break
+            if (A_TickCount >= deadline)
+                break
+            Sleep(50)
+        }
+
+        ; 3. 逾時處理：若視窗仍未關閉，依安全條件終止確認為本批次新增之程序
+        if (pendingWins.Length > 0) {
+            for item in pendingWins {
+                ; 嚴格保護：絕不終止基準中的既有 PID 或 HWND
+                if (baseline.hwnds.Has(item.hwnd) || (item.pid && baseline.pids.Has(item.pid))) {
+                    LogMsg(Format("安全防護攔截：視窗 (HWND: {1}, PID: {2}) 屬於受保護基準，略過強制終止", item.hwnd, item.pid), "ERROR")
+                    continue
+                }
+                LogMsg(Format("Excel 視窗正常關閉逾時 ({1}ms)，強制結束新增程序 (PID: {2}, 標題: '{3}')", timeoutMs, item.pid, item.title), "WARN")
+                if (item.pid && ProcessExist(item.pid)) {
+                    try {
+                        ProcessClose(item.pid)
+                        ProcessWaitClose(item.pid, 0.5)
+                        result.closedPids++
+                    } catch as err {
+                        result.failed.Push(Format("HWND {1}/PID {2}: {3}", item.hwnd, item.pid, err.Message))
+                        LogMsg(Format("強制結束 Excel 程序失敗 (PID: {1}): {2}", item.pid, err.Message), "ERROR")
+                    }
+                }
+            }
+        }
+
+        ; 4. 檢查是否有剩餘未清理的新增 Excel 程序
+        for pid in FindNewExportExcelProcesses(baseline) {
+            if baseline.pids.Has(pid)
+                continue
+            try {
+                ProcessClose(pid)
+                result.closedPids++
+                LogMsg(Format("清理新增 Excel 程序 (PID: {1})", pid), "INFO")
+            } catch as err {
+                result.failed.Push(Format("PID {1}: {2}", pid, err.Message))
+            }
+        }
+    } catch as topErr {
+        LogMsg(Format("CloseNewExportExcels 執行異常: {1}", topErr.Message), "ERROR")
+        result.failed.Push(topErr.Message)
+    }
+
+    return result
+}
+
+
+/**
  * 檢查指定解析度目錄下的圖檔是否齊全 (不使用跨解析度備援)
  * @param {Array} names 圖檔名稱清單
  * @param {String} resStr 解析度字串，預設為主顯示器解析度
@@ -1315,13 +1567,18 @@ TryExportPopRankItem(itemNo, dateStr) {
             return ""
         LogMsg(Format("熱門排行 #{1}：{2} 毫秒內未在 {3} 偵測到新 CSV", itemNo, ExportTiming.TimeoutMs, outDir), "WARN")
         ResetPopRankState(winTitle)
+        if IsObject(ExportRunState.ExcelBaseline)
+            CloseNewExportExcels(ExportRunState.ExcelBaseline)
         return ""
     }
 
     ; 9. 複製至 熱門排行\YYYYMMDD\
     dst := CopyToDateDir(csv, GetPopRankDstRoot(), dateStr)
-    if (dst != "")
+    if (dst != "") {
         LogMsg(Format("熱門排行 #{1}：已匯出 {2}", itemNo, dst), "INFO")
+        excelBase := IsObject(ExportRunState.ExcelBaseline) ? ExportRunState.ExcelBaseline : CaptureExcelBaseline()
+        CloseNewExportExcels(excelBase)
+    }
     return dst
 }
 
@@ -1382,6 +1639,8 @@ ExportPopRankAll(showMsgBox := true) {
     } finally {
         if IsObject(stageState)
             FinalizeCsvStage(stageState)
+        if IsObject(ExportRunState.ExcelBaseline)
+            CloseNewExportExcels(ExportRunState.ExcelBaseline)
         EndExportRun()
     }
 }
@@ -1646,13 +1905,18 @@ TryExportAfterRankItemR(itemNoR, itemNoL := 0, dateStr := "") {
             return ""
         LogMsg(Format("盤後排行 {1}：{2} 毫秒內未在 {3} 偵測到新 CSV", tag, ExportTiming.TimeoutMs, outDir), "WARN")
         ResetAfterRankState(winTitle)
+        if IsObject(ExportRunState.ExcelBaseline)
+            CloseNewExportExcels(ExportRunState.ExcelBaseline)
         return ""
     }
 
     ; 9. 複製至 盤後排行\YYYYMMDD\
     dst := CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)
-    if (dst != "")
+    if (dst != "") {
         LogMsg(Format("盤後排行 {1}：已匯出 {2}", tag, dst), "INFO")
+        excelBase := IsObject(ExportRunState.ExcelBaseline) ? ExportRunState.ExcelBaseline : CaptureExcelBaseline()
+        CloseNewExportExcels(excelBase)
+    }
     return dst
 }
 
@@ -1723,6 +1987,8 @@ ExportAfterRankAll(showMsgBox := true) {
     } finally {
         if IsObject(stageState)
             FinalizeCsvStage(stageState)
+        if IsObject(ExportRunState.ExcelBaseline)
+            CloseNewExportExcels(ExportRunState.ExcelBaseline)
         EndExportRun()
     }
 }

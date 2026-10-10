@@ -106,6 +106,13 @@
 | `TryExportAfterMarketRankingItemR` | `TryExportAfterRankItemR` | 單次匯出右側子項目 (不含重試) |
 | `ExportAfterMarketRankingItemR` | `ExportAfterRankItemR` | 匯出右側子項目 (含重試) |
 | `ExportAfterMarketRankingAll` | `ExportAfterRankAll` | 批次匯出全部盤後排行項目 |
+| `GetExcelProcessIds` | `GetExcelProcessIds` | 取得系統中所有 EXCEL.EXE 程序 PID (Toolhelp32Snapshot) |
+| `CaptureExcelBaseline` | `CaptureExcelBaseline` | 記錄批次開始前的 Excel PID 與視窗 HWND 基準 |
+| `FilterNewExportExcelWindows` | `FilterNewExportExcelWindows` | 純邏輯過濾：從視窗清單中排除基準受保護項目 |
+| `FindNewExportExcelWindows` | `FindNewExportExcelWindows` | 列出相較基準新增的 Excel 視窗並排除受保護 PID/HWND |
+| `FilterNewExportExcelProcesses` | `FilterNewExportExcelProcesses` | 純邏輯過濾：從程序清單中排除基準受保護 PID |
+| `FindNewExportExcelProcesses` | `FindNewExportExcelProcesses` | 列出相較基準新增的 EXCEL.EXE 程序 PID |
+| `CloseNewExportExcels` | `CloseNewExportExcels` | 關閉相較基準新增的 Excel 視窗與程序 (含逾時安全回收) |
 
 ### `Mitake.ahk` (Handlers & Helpers)
 | 原名稱 | 新縮短名稱 | 說明 |

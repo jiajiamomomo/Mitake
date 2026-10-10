@@ -28,6 +28,16 @@
 - **修正**：批次開始前由 `StageExistingCsvs` 暫存 OUT 頂層既有 CSV；結束或異常中止時由 `FinalizeCsvStage` 恢復未被取代的檔案。
 - **資料安全**：新匯出檔保留在 OUT；同名舊版不刪除，保留於 `logs\out-backups\`；無衝突舊檔自動恢復。
 
+### 4. 三竹匯出呼叫關聯程式引發大量 Excel 堆疊與焦點干擾
+
+- **症狀**：每匯出一個 CSV，三竹可能觸發關聯之 Microsoft Excel，批次數十項後系統堆疊大量 Excel 視窗與背景進程，干擾後續項目前景焦點並消耗資源。
+- **根因**：三竹內部寫死呼叫 ShellExecute 開啟匯出的 CSV，即使有 bypass.bat，若系統關聯恢復或非同步喚醒 Excel，仍會留下實體。
+- **修正**：實作 `CaptureExcelBaseline`、`FindNewExportExcelWindows` 與 `CloseNewExportExcels`：
+  1. 批次開始前以 Win32 `Toolhelp32Snapshot` 掃描記錄既有 PID 與 HWND 白名單基準，嚴格保護使用者既有 Excel 活頁簿不受干擾。
+  2. 每個 CSV 完成複製後立即正常關閉 (`WinClose`) 本次新增之 Excel；單項重試前也清理殘留視窗避免焦點奪取。
+  3. `finally` 區塊無死角兜底清理本批次新增視窗與殭屍進程，涵蓋正常完成、`Esc` 中止與例外錯誤。
+  4. 逾時未退出且確認屬於本批次新啟動者，以 `ProcessClose` 安全回收並記錄 WARN 日誌，清理失敗絕不中斷 CSV 歸檔。
+
 ## 維護準則
 
 1. 實機問題先依 `logs/app.log` 判斷失敗階段：視窗焦點、選單導航、匯出點擊、CSV 偵測不可混為同一類重試。
@@ -35,14 +45,13 @@
 3. 無頭測試驗證決策邏輯與檔案生命週期；真實 HWND、滑鼠、鍵盤與自繪 UI 行為仍須由獨立實機工具或托盤流程驗證。
 4. 任何涉及既有 CSV 的處理都必須可復原，不直接刪除使用者資料。
 5. 熱門排行與盤後排行共用相同底層導航、焦點與檔案隔離原語，修正其中一條流程時必須同步回歸另一條流程。
+6. 外部應用（Excel 等）清理必須堅持「白名單基準保護先行」，嚴禁無差別 Terminate 程序。
 
 ## 回歸保護
 
 - `Test_TrustedForegroundMeta`：驗證同 RootOwner／同程序無標題浮層可操作，其他程序與具名子視窗必須拒絕。
 - `Test_DropdownNavigationPlan`：驗證第 N 項確實產生 `N-1` 個獨立 `{Down}`，並保留熱門與盤後排行各自的歸位策略。
 - `Test_CsvStagingAvoidsExistingNameConflict`：驗證既有 CSV 可暫存、無衝突檔可恢復、同名舊版可保留且新檔不被覆蓋。
-- 2026-10-09 無頭回歸結果：`136 Total, 136 Passed, 0 Failed`；實機驗證補足背景 Session 無法測試的 HWND、滑鼠、鍵盤及自繪 UI 行為。
+- `Test_CaptureExcelBaseline` / `Test_FilterNewExportExcelWindows_Protection` / `Test_FilterNewExportExcelProcesses_Protection`：驗證 Excel 白名單保護、差集過濾、清理冪等性及 session 狀態。
+- 2026-10-10 無頭回歸結果：`157 Total, 157 Passed, 0 Failed`；另由 `tests/test_excel_cleanup.ahk` 實機驗證真實 Excel 啟動、辨識、關閉與程序回收生命週期全部通過。
 
-## 已知後續工作
-
-- 三竹每匯出一個 CSV 仍可能另外呼叫 Excel。後續需依 [TODO.md](TODO.md) 實作「只關閉本批次新增 Excel」的安全清理流程，不得影響批次開始前既有的 Excel 與活頁簿。

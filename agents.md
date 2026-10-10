@@ -63,6 +63,7 @@
 │   ├── test_pop_rank_export.ahk # 熱門排行匯出手動實機驗證腳本
 │   ├── test_after_rank_export.ahk # 盤後排行匯出手動實機驗證腳本
 │   ├── test_coords_click.ahk # 實機座標校正與 ToolTip 浮動標籤提示工具
+│   ├── test_excel_cleanup.ahk # Excel 清理與安全保護實機驗證腳本
 │   ├── capture_asset.ahk     # 介面資產截圖輔助腳本
 │   ├── diagnose_export_btn.ahk # 資料匯出按鈕點擊診斷腳本
 │   └── helpers/              # 測試輔助模組 (斷言庫)
@@ -80,7 +81,7 @@
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
 - [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
 - [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
-- [ ] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
+- [x] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
 
 ---
 

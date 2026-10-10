@@ -240,6 +240,64 @@ Test_AfterRankAssets() {
     Assert.AssertTrue(!HasResAssets(assets, "3840x2160"), "3840x2160 should report missing AfterRankAssets")
 }
 
+Test_CaptureExcelBaseline() {
+    baseline := CaptureExcelBaseline()
+    Assert.AssertTrue(IsObject(baseline), "CaptureExcelBaseline should return an object")
+    Assert.AssertTrue(baseline.HasProp("pids") && Type(baseline.pids) == "Map", "Baseline should contain pids Map")
+    Assert.AssertTrue(baseline.HasProp("hwnds") && Type(baseline.hwnds) == "Map", "Baseline should contain hwnds Map")
+}
+
+Test_FilterNewExportExcelWindows_Protection() {
+    base := { pids: Map(1001, true, 1002, true), hwnds: Map(0x1111, true) }
+    w1 := { hwnd: 0x1111, pid: 9999, title: "保護1-已知HWND" }
+    w2 := { hwnd: 0x2222, pid: 1001, title: "保護2-已知PID" }
+    w3 := { hwnd: 0x3333, pid: 2001, title: "新增1-全新" }
+    w4 := { hwnd: 0x4444, pid: 2002, title: "新增2-全新" }
+
+    res := FilterNewExportExcelWindows([w1, w2, w3, w4], base)
+    Assert.AssertEquals(2, res.Length, "FilterNewExportExcelWindows should only retain new windows")
+    Assert.AssertEquals(0x3333, res[1].hwnd, "First retained window should be w3")
+    Assert.AssertEquals(0x4444, res[2].hwnd, "Second retained window should be w4")
+
+    ; 測試空或無效 baseline 安全性
+    Assert.AssertEquals(0, FilterNewExportExcelWindows([w3], "").Length, "Invalid baseline should return empty array")
+}
+
+Test_FilterNewExportExcelProcesses_Protection() {
+    base := { pids: Map(1001, true, 1002, true), hwnds: Map() }
+    res := FilterNewExportExcelProcesses([1001, 1002, 3001, 3002], base)
+    Assert.AssertEquals(2, res.Length, "FilterNewExportExcelProcesses should filter out protected baseline PIDs")
+    Assert.AssertEquals(3001, res[1], "First retained PID should be 3001")
+    Assert.AssertEquals(3002, res[2], "Second retained PID should be 3002")
+    Assert.AssertEquals(0, FilterNewExportExcelProcesses([3001], "").Length, "Invalid baseline should return empty array")
+}
+
+Test_CloseNewExportExcels_Idempotence() {
+    base := CaptureExcelBaseline()
+    res1 := CloseNewExportExcels(base, 50)
+    Assert.AssertEquals(0, res1.closedWins, "Idempotent call 1 should close 0 windows when no new Excel")
+    Assert.AssertEquals(0, res1.closedPids, "Idempotent call 1 should close 0 pids when no new Excel")
+
+    res2 := CloseNewExportExcels(base, 50)
+    Assert.AssertEquals(0, res2.closedWins, "Idempotent call 2 should close 0 windows")
+    Assert.AssertEquals(0, res2.closedPids, "Idempotent call 2 should close 0 pids")
+
+    resInvalid := CloseNewExportExcels("", 50)
+    Assert.AssertEquals(0, resInvalid.closedWins, "Invalid baseline should safely close 0 windows")
+}
+
+Test_ExportRunState_ExcelBaseline() {
+    Assert.AssertTrue(BeginExportRun("測試基準生命週期", false), "BeginExportRun should succeed")
+    try {
+        Assert.AssertTrue(IsObject(ExportRunState.ExcelBaseline), "ExportRunState should hold ExcelBaseline object")
+        Assert.AssertTrue(ExportRunState.ExcelBaseline.HasProp("pids"), "ExcelBaseline should have pids")
+        Assert.AssertTrue(ExportRunState.ExcelBaseline.HasProp("hwnds"), "ExcelBaseline should have hwnds")
+    } finally {
+        EndExportRun()
+    }
+    Assert.AssertTrue(ExportRunState.ExcelBaseline == "", "ExcelBaseline should be cleared after EndExportRun")
+}
+
 RunExportTests() {
     FileAppend("Running Export Tests...`n", "*")
     Test_GetPopRankTotalItems()
@@ -260,4 +318,10 @@ RunExportTests() {
     Test_GetAfterRankTotalItems()
     Test_GetAfterRankDstRoot()
     Test_AfterRankAssets()
+    Test_CaptureExcelBaseline()
+    Test_FilterNewExportExcelWindows_Protection()
+    Test_FilterNewExportExcelProcesses_Protection()
+    Test_CloseNewExportExcels_Idempotence()
+    Test_ExportRunState_ExcelBaseline()
 }
+
