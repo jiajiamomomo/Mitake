@@ -35,6 +35,42 @@ Test_LogMsg() {
     Assert.AssertTrue(FileExist(logFile), "Log file should exist after LogMsg call")
 }
 
+Test_WriteRotatingLog() {
+    logDir := A_Temp "\\mitake-log-rotation-" DllCall("GetCurrentProcessId") "-" A_TickCount
+    DirCreate(logDir)
+    logFile := logDir "\\app.log"
+    try {
+        Loop 12
+            WriteRotatingLog(logFile, "[INFO] 第" A_Index "筆測試訊息`n", 90, 2)
+
+        Assert.AssertTrue(FileExist(logFile), "Current log should exist")
+        Assert.AssertTrue(FileExist(logFile ".1"), "First archive should exist")
+        Assert.AssertTrue(FileExist(logFile ".2"), "Second archive should exist")
+        Assert.AssertTrue(!FileExist(logFile ".3"), "Archives should be bounded")
+        for path in [logFile, logFile ".1", logFile ".2"]
+            Assert.AssertTrue(FileGetSize(path) <= 90, "Each log file should stay within byte limit: " path)
+        Assert.AssertTrue(InStr(FileRead(logFile, "UTF-8"), "第12筆") > 0, "Current log should contain newest entry")
+        Assert.AssertTrue(InStr(FileRead(logFile ".2", "UTF-8"), "第1筆") == 0, "Oldest entries should be discarded")
+
+        longLine := ""
+        Loop 200
+            longLine .= "中"
+        WriteRotatingLog(logFile, longLine "`n", 90, 2)
+        Assert.AssertTrue(FileGetSize(logFile) <= 90, "Oversized entry should be truncated within limit")
+        Assert.AssertTrue(InStr(FileRead(logFile, "UTF-8"), "已截斷") > 0, "Truncation should be visible in log")
+
+        oldLog := logDir "\\old.log"
+        FileAppend(longLine, oldLog, "UTF-8")
+        WriteRotatingLog(oldLog, "new entry`n", 90, 1)
+        Assert.AssertTrue(FileGetSize(oldLog) <= 90, "Previously oversized log should rotate before append")
+        Assert.AssertTrue(InStr(FileRead(oldLog, "UTF-8"), "new entry") > 0, "New entry should survive rotation")
+    } finally {
+        Loop Files, logDir "\\*", "F"
+            FileDelete(A_LoopFileFullPath)
+        DirDelete(logDir)
+    }
+}
+
 Test_GetRes() {
     res := GetRes()
     Assert.AssertTrue(res.width > 0, "Primary display width should be greater than 0")
@@ -70,6 +106,7 @@ RunUtilsTests() {
     Test_GetCfg_DefVal()
     Test_EnsureIniEnc_AtomicConversion()
     Test_LogMsg()
+    Test_WriteRotatingLog()
     Test_GetRes()
     Test_GetAllRes()
     Test_IsSupportedRes()

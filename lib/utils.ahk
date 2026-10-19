@@ -102,6 +102,46 @@ GetCfg(section, key, defVal := "") {
 }
 
 /**
+ * 將日誌限制在指定大小，保留最近的固定份數（app.log.1 為最新備份）。
+ * @param {String} logFile 目前日誌路徑
+ * @param {String} logLine 待寫入內容
+ * @param {Integer} maxBytes 單檔位元組上限
+ * @param {Integer} archiveCount 備份份數
+ */
+WriteRotatingLog(logFile, logLine, maxBytes := 1048576, archiveCount := 3) {
+    if (maxBytes < 64 || archiveCount < 0)
+        throw ValueError("日誌輪替參數無效")
+
+    ; UTF-8 新檔可能帶有 3 bytes BOM，將其納入上限。
+    if (StrPut(logLine, "UTF-8") - 1 + 3 > maxBytes) {
+        marker := "... [日誌訊息過長，已截斷]`n"
+        logLine := SubStr(logLine, 1, maxBytes // 4) marker
+        while (StrPut(logLine, "UTF-8") - 1 + 3 > maxBytes)
+            logLine := SubStr(logLine, 1, StrLen(logLine) - StrLen(marker) - 1) marker
+    }
+
+    currentSize := FileExist(logFile) ? FileGetSize(logFile) : 0
+    if (currentSize + StrPut(logLine, "UTF-8") - 1 + (currentSize ? 0 : 3) > maxBytes) {
+        if (archiveCount > 0) {
+            oldest := logFile "." archiveCount
+            if FileExist(oldest)
+                FileDelete(oldest)
+            Loop archiveCount - 1 {
+                index := archiveCount - A_Index
+                source := logFile "." index
+                if FileExist(source)
+                    FileMove(source, logFile "." (index + 1))
+            }
+            if FileExist(logFile)
+                FileMove(logFile, logFile ".1")
+        } else if FileExist(logFile) {
+            FileDelete(logFile)
+        }
+    }
+    FileAppend(logLine, logFile, "`n UTF-8")
+}
+
+/**
  * 記錄執行日誌
  * @param {String} msg 訊息內容
  * @param {String} level 日誌等級 (INFO, WARN, ERROR)
@@ -122,7 +162,9 @@ LogMsg(msg, level := "INFO") {
     logLine := Format("[{1}] [{2}] {3}`n", timestamp, level, msg)
     
     try {
-        FileAppend(logLine, logFile, "`n UTF-8")
+        WriteRotatingLog(logFile, logLine)
+    } catch as err {
+        OutputDebug("日誌寫入失敗: " err.Message "`n")
     }
     OutputDebug(logLine)
 }

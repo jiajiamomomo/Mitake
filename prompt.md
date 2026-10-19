@@ -549,6 +549,8 @@ MenuShowResHnd(*) {
 4. 匯出執行期間可按 `Esc` 要求安全中止；同一時間只允許一個匯出作業。
 5. 結果會寫入 `熱門排行\YYYYMMDD\` 或 `盤後排行\YYYYMMDD\`，執行紀錄位於 `logs\app.log`。
 
+`app.log` 每檔上限 1 MiB；寫滿時依序輪替為 `app.log.1`（最新）至 `app.log.3`（最舊）。第 4 次輪替會移除最舊備份，避免日誌無限增長。單筆訊息超過上限時會截斷並留下標記。
+
 批次開始前，腳本會暫存三竹 `USER\OUT` 中既有的 CSV，避免三竹因同名檔已存在而拒絕重新輸出。未被本次輸出取代的檔案會在結束時恢復；同名舊版會保留在 `logs\out-backups\` 供復原。
 
 每項 CSV 複製完成後，腳本會正常關閉相較批次開始時新增的 Excel 視窗，並在批次結束時再次清理。若遇到 Excel「上次無法啟動／安全模式」詢問，會自動選「否」取消該次啟動。為避免反覆觸發安全模式，正常關閉逾時不再強制結束 Excel；此時會留下 WARN 日誌供檢查。判斷依據是 Excel PID／HWND 差集，無法確認啟動來源；批次期間請勿另外開啟 Excel。已在批次開始前存在的 Excel PID／HWND 會列入保護基準。`bypass.bat` 只在使用者自行將 CSV 關聯程式指向它時生效，腳本不會更改系統關聯。
@@ -2226,6 +2228,46 @@ GetCfg(section, key, defVal := "") {
 }
 
 /**
+ * 將日誌限制在指定大小，保留最近的固定份數（app.log.1 為最新備份）。
+ * @param {String} logFile 目前日誌路徑
+ * @param {String} logLine 待寫入內容
+ * @param {Integer} maxBytes 單檔位元組上限
+ * @param {Integer} archiveCount 備份份數
+ */
+WriteRotatingLog(logFile, logLine, maxBytes := 1048576, archiveCount := 3) {
+    if (maxBytes < 64 || archiveCount < 0)
+        throw ValueError("日誌輪替參數無效")
+
+    ; UTF-8 新檔可能帶有 3 bytes BOM，將其納入上限。
+    if (StrPut(logLine, "UTF-8") - 1 + 3 > maxBytes) {
+        marker := "... [日誌訊息過長，已截斷]`n"
+        logLine := SubStr(logLine, 1, maxBytes // 4) marker
+        while (StrPut(logLine, "UTF-8") - 1 + 3 > maxBytes)
+            logLine := SubStr(logLine, 1, StrLen(logLine) - StrLen(marker) - 1) marker
+    }
+
+    currentSize := FileExist(logFile) ? FileGetSize(logFile) : 0
+    if (currentSize + StrPut(logLine, "UTF-8") - 1 + (currentSize ? 0 : 3) > maxBytes) {
+        if (archiveCount > 0) {
+            oldest := logFile "." archiveCount
+            if FileExist(oldest)
+                FileDelete(oldest)
+            Loop archiveCount - 1 {
+                index := archiveCount - A_Index
+                source := logFile "." index
+                if FileExist(source)
+                    FileMove(source, logFile "." (index + 1))
+            }
+            if FileExist(logFile)
+                FileMove(logFile, logFile ".1")
+        } else if FileExist(logFile) {
+            FileDelete(logFile)
+        }
+    }
+    FileAppend(logLine, logFile, "`n UTF-8")
+}
+
+/**
  * 記錄執行日誌
  * @param {String} msg 訊息內容
  * @param {String} level 日誌等級 (INFO, WARN, ERROR)
@@ -2246,7 +2288,9 @@ LogMsg(msg, level := "INFO") {
     logLine := Format("[{1}] [{2}] {3}`n", timestamp, level, msg)
     
     try {
-        FileAppend(logLine, logFile, "`n UTF-8")
+        WriteRotatingLog(logFile, logLine)
+    } catch as err {
+        OutputDebug("日誌寫入失敗: " err.Message "`n")
     }
     OutputDebug(logLine)
 }
