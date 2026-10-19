@@ -286,6 +286,29 @@ Test_CloseNewExportExcels_Idempotence() {
     Assert.AssertEquals(0, resInvalid.closedWins, "Invalid baseline should safely close 0 windows")
 }
 
+Test_IsExcelSafeModePrompt() {
+    Assert.AssertTrue(IsExcelSafeModePrompt("#32770", "Excel 上次無法啟動。安全模式可協助您疑難排解問題。"), "Chinese Excel recovery dialog should be recognized")
+    Assert.AssertTrue(IsExcelSafeModePrompt("#32770", "Excel couldn't start last time. Do you want to start in safe mode?"), "English Excel recovery dialog should be recognized")
+    Assert.AssertTrue(!IsExcelSafeModePrompt("XLMAIN", "安全模式"), "Workbook window must not be treated as recovery dialog")
+    Assert.AssertTrue(!IsExcelSafeModePrompt("#32770", "安全模式"), "Unrelated safe mode dialog must not be dismissed")
+}
+
+Test_WaitNewCsv_WhenExcelHasReadHandle() {
+    dir := NewTmpDir("csv_read_shared")
+    csv := dir "\shared.csv"
+    MakeFile(csv)
+    handle := DllCall("CreateFileW", "Str", csv, "UInt", 0x80000000, "UInt", 0x1
+        , "Ptr", 0, "UInt", 3, "UInt", 0x80, "Ptr", 0, "Ptr")
+    Assert.AssertTrue(handle != -1, "Read-sharing handle should open")
+    try {
+        Assert.AssertEquals(csv, WaitNewCsv(dir, Map(), 500, 50), "Completed CSV should be readable even when Excel has it open")
+    } finally {
+        if (handle != -1)
+            DllCall("CloseHandle", "Ptr", handle)
+        DirDelete(dir, true)
+    }
+}
+
 Test_ExportRunState_ExcelBaseline() {
     Assert.AssertTrue(BeginExportRun("測試基準生命週期", false), "BeginExportRun should succeed")
     try {
@@ -322,6 +345,8 @@ RunExportTests() {
     Test_FilterNewExportExcelWindows_Protection()
     Test_FilterNewExportExcelProcesses_Protection()
     Test_CloseNewExportExcels_Idempotence()
+    Test_IsExcelSafeModePrompt()
+    Test_WaitNewCsv_WhenExcelHasReadHandle()
     Test_ExportRunState_ExcelBaseline()
 }
 

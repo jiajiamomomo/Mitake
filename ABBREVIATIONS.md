@@ -19,8 +19,8 @@
 | Default | `Def` | `defVal`, `defX`, `defY` |
 | Target | `Tgt` | `tgtWin`, `tgtPath`, `tgtRes`, `tgtMon` |
 | Directory | `Dir` | `logDir`, `dirPath`, `GetRootDir` |
-| Hotkey | `HK` | `launchHk`, `menubarHk`, `HkLaunch` |
-| Handler | `Hnd` | `MenuLaunchHnd`, `HkLaunchHnd` |
+| Hotkey | `Hk` | `RegisterHk`, `hkDefs` |
+| Handler | `Hnd` | `MenuLaunchHnd`, `MenuAfterRankExportHnd` |
 | Popular Ranking (熱門排行) | `PopRank` | `GetPopRankWinTitle`, `ClickPopRankMenu` |
 | After-Market Ranking (盤後排行) | `AfterRank` | `GetAfterRankWinTitle`, `ClickAfterRankMenu` |
 | Securities Quote (證券行情) | `SecQuote` | `ClickSecQuoteMenu` |
@@ -72,6 +72,9 @@
 | `SwitchToAfterMarketRankingWindow` | `SwitchToAfterRankWin` | 切換至「盤後排行」視窗 |
 
 ### `lib/export.ahk`
+
+以下「原函式名」為縮寫展開的語意對照；執行時使用「新縮短函式名」欄中的實際識別碼。
+
 | 原函式名 | 新縮短函式名 | 說明 |
 | :--- | :--- | :--- |
 | `ExportTimingConstants` | `ExportTiming` | 匯出流程時序常數 (寫死於程式) |
@@ -87,7 +90,7 @@
 | `GetCsvSignature` | `GetCsvSignature` | 計算 CSV 修改時間、大小與內容雜湊簽章 |
 | `StageExistingCsvFiles` | `StageExistingCsvs` | 批次前暫存 OUT 目錄既有 CSV，避開同名衝突 |
 | `FinalizeCsvStaging` | `FinalizeCsvStage` | 恢復未被取代的 CSV 並保留同名舊版備份 |
-| `IsFileReady` | `IsFileReady` | 檢查檔案是否已寫入完成 |
+| `IsFileReady` | `IsFileReady` | 檢查檔案是否可讀；由連續相同簽章確認寫入完成 |
 | `WaitForNewCsv` | `WaitNewCsv` | 輪詢等待新 CSV 出現 |
 | `CopyToDateDirectory` | `CopyToDateDir` | 複製至 `YYYYMMDD` 子資料夾 (同名覆蓋) |
 | `HasResolutionAssets` | `HasResAssets` | 檢查指定解析度圖檔是否齊全 |
@@ -96,6 +99,7 @@
 | `TryExportPopularRankingItem` | `TryExportPopRankItem` | 單次匯出單一項目 (不含重試) |
 | `ExportPopularRankingItem` | `ExportPopRankItem` | 匯出單一項目 (含重試) |
 | `ExportPopularRankingAll` | `ExportPopRankAll` | 批次匯出全部項目 |
+| `RunExportPopularRankingAll` | `RunExportPopRankAll` | 執行熱門排行前置檢查與項目迴圈 |
 | `AfterMarketRankingAssets` | `AfterRankAssets` | 盤後排行匯出所需圖檔清單 |
 | `GetAfterMarketRankingTotalItemsL` | `GetAfterRankTotalItemsL` | 讀取 `[AfterMarketRanking] TotalItemsL` (預設 5) |
 | `GetAfterMarketRankingTotalItemsR` | `GetAfterRankTotalItemsR` | 讀取 `[AfterMarketRanking] TotalItemsR{itemNoL}` (依規格預設) |
@@ -106,6 +110,7 @@
 | `TryExportAfterMarketRankingItemR` | `TryExportAfterRankItemR` | 單次匯出右側子項目 (不含重試) |
 | `ExportAfterMarketRankingItemR` | `ExportAfterRankItemR` | 匯出右側子項目 (含重試) |
 | `ExportAfterMarketRankingAll` | `ExportAfterRankAll` | 批次匯出全部盤後排行項目 |
+| `RunExportAfterMarketRankingAll` | `RunExportAfterRankAll` | 執行盤後排行前置檢查與分類迴圈 |
 | `GetExcelProcessIds` | `GetExcelProcessIds` | 取得系統中所有 EXCEL.EXE 程序 PID (Toolhelp32Snapshot) |
 | `CaptureExcelBaseline` | `CaptureExcelBaseline` | 記錄批次開始前的 Excel PID 與視窗 HWND 基準 |
 | `FilterNewExportExcelWindows` | `FilterNewExportExcelWindows` | 純邏輯過濾：從視窗清單中排除基準受保護項目 |

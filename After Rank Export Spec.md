@@ -16,7 +16,7 @@
 2. **輸出路徑**：
    - 三竹匯出原始 CSV 預設輸出至 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
 3. **二維分類項目結構**：
-   - 左側下拉清單（`盤後下拉L.png`）固定 5 個大分類。
+   - 左側下拉清單（`盤後下拉L.png`）目前在設定檔中列為 5 個大分類。
    - 右側下拉清單（`盤後下拉R.png`）之子項目數量依分類而異（共 36 項）：
 
 | 分類序號 (L) | 中文項目 | 英文縮寫 | 完整英文對照 | 右側子項目數量 (R) |
@@ -69,7 +69,7 @@
   6. 滑鼠移至 `(10, 10)` 清除 Hover，等待 1500 ms 介面刷新。
   7. 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
   8. `ClickExportBtn()` 點擊「資料匯出」按鈕（優先圖像搜尋 `資料匯出.png`，失敗降級採用 `settings.ini` 之 `[ExportButton]` 座標），點擊後立即移開滑鼠。
-  9. `WaitNewCsv(outDir, baseline)` 尋找相較基準新增或內容已改變的 CSV，並以 `IsFileReady` 與連續兩次相同簽章確認寫入完成。
+  9. `WaitNewCsv(outDir, baseline)` 尋找相較基準新增或內容已改變的 CSV，並以可讀檢查與連續兩次相同簽章確認寫入完成；Excel 已開啟檔案時不要求獨佔讀取。
   10. `CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)`：複製覆蓋至 `<專案>\盤後排行\YYYYMMDD\<原始檔名>`。
 
 ### 3.5 批次全項目匯出 (`ExportAfterRankAll`)
@@ -79,6 +79,7 @@
   - 若解析度不符或圖檔缺失，記錄 WARN 日誌並中止（`aborted := true`）。
 - **日期目錄決定**：批次開始時決定一次 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用。
 - **既有 CSV 衝突隔離**：批次開始前暫存 OUT 目錄既有 CSV；結束時恢復未被取代的檔案，同名舊版保留於 `logs\out-backups\`，避免三竹拒絕覆寫後觸發同項重試。
+- **Excel 清理邊界**：批次開始時擷取 Excel PID／HWND 基準；CSV 複製成功、輪詢逾時及批次 `finally` 時清理相較基準新增的 Excel。差集無法確認啟動來源，批次期間請勿另開 Excel。
 - **巢狀執行與失敗熔斷**：
   - 外迴圈走訪分類 `itemNoL := 1..TotalItemsL` (5)。
   - 若外層分類 `itemNoL` 選取失敗：實施**立即熔斷 (Circuit Breaking)**，跳過該分類底下的所有子項目，並將其全部子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單，避免級聯式的盲目重試。
@@ -139,3 +140,4 @@ AfterRankExportHotkey =
      - `L R` / `L,R` / `L-R`：執行特定分類下的指定子項目（例如 `1,3` 執行分類 1 之子項目 3）。
      - `L`（1~5）：執行指定分類下的所有子項目（例如 `2` 執行分類 2 的所有 10 項）。
      - 未帶參數時彈出互動式 `InputBox` 供使用者輸入。
+   - 指定分類或單一子項目時直接呼叫單項函式，沒有完整批次的 OUT 暫存與 Excel 基準保護；`0`／`all` 才呼叫 `ExportAfterRankAll`。

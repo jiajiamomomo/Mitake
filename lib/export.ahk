@@ -1,8 +1,9 @@
 #Requires AutoHotkey v2.0
 
 ; =============================================================================
-; 匯出模組：對「熱門排行」各項目執行「資料匯出」並將 CSV 複製至專案目錄
-; 三竹匯出後呼叫的關聯程式由 bypass.bat 立即結束，CSV 會留在 USER\OUT\ 目錄
+; 匯出模組：批次匯出「熱門排行」與「盤後排行」CSV，複製至專案日期目錄
+; 三竹在點擊「資料匯出」後會喚醒 Excel 或第三方應用而奪取前台焦點
+; `bypass.bat`無效
 ; =============================================================================
 
 /**
@@ -80,6 +81,7 @@ BeginExportRun(kind, showMsgBox := true) {
     ExportRunState.CancelRequested := false
     ExportRunState.Kind := kind
     ExportRunState.ExcelBaseline := CaptureExcelBaseline()
+    SetTimer(DismissNewExcelSafeModePrompts, 100)
     SetExportUiEnabled(false)
     return true
 }
@@ -93,6 +95,7 @@ RequestExportCancel() {
 }
 
 EndExportRun() {
+    SetTimer(DismissNewExcelSafeModePrompts, 0)
     SetExportUiEnabled(true)
     ExportRunState.Busy := false
     ExportRunState.CancelRequested := false
@@ -269,13 +272,13 @@ FindNewCsv(outDir, sinceOrBaseline) {
 }
 
 /**
- * 判斷檔案是否已寫入完成 (可被獨佔開啟)
+ * 判斷檔案是否可讀；寫入完成仍由 WaitNewCsv 的兩次相同簽章確認。
  * @param {String} path 檔案路徑
  * @returns {Boolean}
  */
 IsFileReady(path) {
     try {
-        f := FileOpen(path, "r -rwd")
+        f := FileOpen(path, "r")
         if !f
             return false
         f.Close()
@@ -370,7 +373,7 @@ GetExcelProcessIds() {
 }
 
 /**
- * 記錄批次開始前的 Excel PID 與頂層視窗 HWND 基準
+ * 記錄批次開始前的 Excel PID 與頂層視窗 HWND 基準；差集無法辨識新程序由誰啟動
  * @returns {Object} { pids: Map, hwnds: Map }
  */
 CaptureExcelBaseline() {
@@ -470,48 +473,82 @@ FindNewExportExcelProcesses(baseline) {
     return FilterNewExportExcelProcesses(currPids, baseline)
 }
 
+IsExcelSafeModePrompt(winClass, dialogText) {
+    if (winClass != "#32770")
+        return false
+    return (InStr(dialogText, "安全模式") && InStr(dialogText, "無法啟動"))
+        || (InStr(StrLower(dialogText), "safe mode") && InStr(StrLower(dialogText), "start last time"))
+}
+
+; 只處理本批次新 Excel 的啟動修復詢問，選「否」取消這次 Excel 啟動。
+DismissExcelSafeModePrompt(item) {
+    try {
+        if (WinGetClass(item.hwnd) != "#32770")
+            return false
+        controls := WinGetControls(item.hwnd)
+        dialogText := ""
+        for ctrl in controls {
+            try dialogText .= ControlGetText(ctrl, item.hwnd) "`n"
+        }
+        if !IsExcelSafeModePrompt("#32770", dialogText)
+            return false
+        for ctrl in controls {
+            if (SubStr(ctrl, 1, 6) != "Button")
+                continue
+            label := Trim(ControlGetText(ctrl, item.hwnd))
+            if (SubStr(label, 1, 1) == "否" || RegExMatch(label, "i)^No(?:\W|$)")) {
+                ControlClick(ctrl, item.hwnd)
+                LogMsg(Format("已取消本批次 Excel 安全模式啟動詢問 (PID: {1})", item.pid), "INFO")
+                return true
+            }
+        }
+    } catch as err {
+        ; Excel 自行結束時，快照中的 HWND 可能已失效；這是正常競態。
+        if WinExist(item.hwnd)
+            LogMsg(Format("處理 Excel 安全模式詢問失敗 (PID: {1}): {2}", item.pid, err.Message), "WARN")
+    }
+    return false
+}
+
+DismissNewExcelSafeModePrompts() {
+    if !IsExportRunActive() || !IsObject(ExportRunState.ExcelBaseline)
+        return
+    for item in FindNewExportExcelWindows(ExportRunState.ExcelBaseline)
+        DismissExcelSafeModePrompt(item)
+}
+
 /**
- * 關閉相較基準新增由三竹開啟的 Excel 視窗與程序
- * 優先採用 WinClose 正常關閉，若逾時且確認屬於本批次新開啟，則終止程序。
+ * 關閉相較批次基準新增的 Excel 視窗與程序
+ * 僅以 PID/HWND 差集判斷，無法確認啟動來源；批次期間使用者另開的 Excel 也可能被清理。
+ * 以 WinClose 正常關閉；不強制終止 Excel，以免下次啟動進入安全模式詢問。
  * 清理失敗不中斷流程，詳細記錄日誌。
  * @param {Object} baseline 基準物件
- * @param {Integer} timeoutMs 正常關閉確認逾時毫秒 (預設 1500ms)
+ * @param {Integer} timeoutMs 正常關閉確認逾時毫秒 (預設 3000ms)
  * @returns {Object} { closedWins: Integer, closedPids: Integer, failed: Array }
  */
-CloseNewExportExcels(baseline, timeoutMs := 1500) {
+CloseNewExportExcels(baseline, timeoutMs := 3000) {
     result := { closedWins: 0, closedPids: 0, failed: [] }
     if !IsObject(baseline) || !baseline.HasProp("pids") || !baseline.HasProp("hwnds")
         return result
 
     try {
         newWins := FindNewExportExcelWindows(baseline)
-        if (newWins.Length == 0) {
-            ; 檢查是否有無視窗殘留之新增 Excel 程序
-            newPids := FindNewExportExcelProcesses(baseline)
-            for pid in newPids {
-                if baseline.pids.Has(pid)
-                    continue
-                try {
-                    ProcessClose(pid)
-                    result.closedPids++
-                    LogMsg(Format("已終止三竹殘留無效 Excel 程序 (PID: {1})", pid), "INFO")
-                } catch as err {
-                    result.failed.Push(Format("PID {1}: {2}", pid, err.Message))
-                    LogMsg(Format("終止殘留 Excel 程序失敗 (PID: {1}): {2}", pid, err.Message), "WARN")
-                }
-            }
+        if (newWins.Length == 0)
             return result
-        }
 
         ; 1. 對所有新增視窗發送 WinClose 正常關閉
-        targetPids := Map()
         for item in newWins {
+            if !WinExist(item.hwnd)
+                continue
+            if DismissExcelSafeModePrompt(item)
+                continue
+            if !WinExist(item.hwnd)
+                continue
             LogMsg(Format("正在正常關閉三竹匯出開啟之 Excel 視窗 (HWND: {1}, PID: {2}, 標題: '{3}')", item.hwnd, item.pid, item.title), "INFO")
-            if (item.pid)
-                targetPids[item.pid] := true
             try WinClose(item.hwnd)
             catch as err {
-                LogMsg(Format("傳送 WinClose 失敗 (HWND: {1}): {2}", item.hwnd, err.Message), "WARN")
+                if WinExist(item.hwnd)
+                    LogMsg(Format("傳送 WinClose 失敗 (HWND: {1}): {2}", item.hwnd, err.Message), "WARN")
             }
         }
 
@@ -534,38 +571,11 @@ CloseNewExportExcels(baseline, timeoutMs := 1500) {
             Sleep(50)
         }
 
-        ; 3. 逾時處理：若視窗仍未關閉，依安全條件終止確認為本批次新增之程序
+        ; 3. 逾時只記錄；強制終止會讓 Excel 下次啟動再詢問安全模式。
         if (pendingWins.Length > 0) {
             for item in pendingWins {
-                ; 嚴格保護：絕不終止基準中的既有 PID 或 HWND
-                if (baseline.hwnds.Has(item.hwnd) || (item.pid && baseline.pids.Has(item.pid))) {
-                    LogMsg(Format("安全防護攔截：視窗 (HWND: {1}, PID: {2}) 屬於受保護基準，略過強制終止", item.hwnd, item.pid), "ERROR")
-                    continue
-                }
-                LogMsg(Format("Excel 視窗正常關閉逾時 ({1}ms)，強制結束新增程序 (PID: {2}, 標題: '{3}')", timeoutMs, item.pid, item.title), "WARN")
-                if (item.pid && ProcessExist(item.pid)) {
-                    try {
-                        ProcessClose(item.pid)
-                        ProcessWaitClose(item.pid, 0.5)
-                        result.closedPids++
-                    } catch as err {
-                        result.failed.Push(Format("HWND {1}/PID {2}: {3}", item.hwnd, item.pid, err.Message))
-                        LogMsg(Format("強制結束 Excel 程序失敗 (PID: {1}): {2}", item.pid, err.Message), "ERROR")
-                    }
-                }
-            }
-        }
-
-        ; 4. 檢查是否有剩餘未清理的新增 Excel 程序
-        for pid in FindNewExportExcelProcesses(baseline) {
-            if baseline.pids.Has(pid)
-                continue
-            try {
-                ProcessClose(pid)
-                result.closedPids++
-                LogMsg(Format("清理新增 Excel 程序 (PID: {1})", pid), "INFO")
-            } catch as err {
-                result.failed.Push(Format("PID {1}: {2}", pid, err.Message))
+                LogMsg(Format("Excel 視窗正常關閉逾時 ({1}ms)，保留程序避免觸發安全模式 (PID: {2}, 標題: '{3}')", timeoutMs, item.pid, item.title), "WARN")
+                result.failed.Push(Format("HWND {1}/PID {2}: 正常關閉逾時", item.hwnd, item.pid))
             }
         }
     } catch as topErr {
@@ -680,7 +690,7 @@ TryExportPopRankItem(itemNo, dateStr) {
     ; 6. 等待資料刷新
     Sleep(ExportTiming.RefreshDelayMs)
 
-    ; 7. 點擊資料匯出 (記錄觸發時間以辨識新產生的 CSV；圖像辨識失敗時退回 settings.ini 座標)
+    ; 7. 點擊資料匯出 (先擷取 CSV 快照，圖像辨識失敗時退回 settings.ini 座標)
     outDir := GetExportOutDir("PopularRanking")
     baseline := CaptureCsvState(outDir)
     if !ClickExportBtn(winTitle, res) {
@@ -888,9 +898,9 @@ ResetAfterRankState(tgtWin := "") {
  * 執行單次「盤後排行」左側下拉項目選取 (不含重試)
  * 1. SwitchToAfterRankWin()
  * 2. FindClickImg("盤後下拉L.png")
- * 3. Send("{Home}") + PgUp 批次歸位
- * 4. Send("{Down}") × (itemNoL - 1)
- * 5. Send("{Enter}")
+ * 3. 以 SendEvent 分別送出 Home 與五次 PgUp 脈衝歸位
+ * 4. 送出 (itemNoL - 1) 次獨立 Down 脈衝
+ * 5. 送出 Enter 脈衝
  * 6. Sleep 等待資料刷新
  * @param {Integer} itemNoL 左側項目序號 (1 起算)
  * @returns {Boolean} 是否選取成功
@@ -969,9 +979,9 @@ ExportAfterRankItemL(itemNoL) {
  * 執行單次「盤後排行」右側下拉項目匯出 (不含重試)
  * 1. 確保切換至「盤後排行」視窗 (防止被 Excel 等程式搶走焦點)
  * 2. FindClickImg("盤後下拉R.png")
- * 3. Send("{Home}") + PgUp 批次歸位
- * 4. Send("{Down}") × (itemNoR - 1)
- * 5. Send("{Enter}")
+ * 3. 以 SendEvent 分別送出 Home 與五次 PgUp 脈衝歸位
+ * 4. 送出 (itemNoR - 1) 次獨立 Down 脈衝
+ * 5. 送出 Enter 脈衝
  * 6. Sleep 等待資料刷新
  * 7. 擷取 CSV 基準快照 → FindClickImg("資料匯出.png")
  * 8. 輪詢 OutDir 尋找相較快照新增或內容已變更的 CSV

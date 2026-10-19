@@ -19,6 +19,8 @@
 
 批次開始前，腳本會暫存三竹 `USER\OUT` 中既有的 CSV，避免三竹因同名檔已存在而拒絕重新輸出。未被本次輸出取代的檔案會在結束時恢復；同名舊版會保留在 `logs\out-backups\` 供復原。
 
+每項 CSV 複製完成後，腳本會正常關閉相較批次開始時新增的 Excel 視窗，並在批次結束時再次清理。若遇到 Excel「上次無法啟動／安全模式」詢問，會自動選「否」取消該次啟動。為避免反覆觸發安全模式，正常關閉逾時不再強制結束 Excel；此時會留下 WARN 日誌供檢查。判斷依據是 Excel PID／HWND 差集，無法確認啟動來源；批次期間請勿另外開啟 Excel。已在批次開始前存在的 Excel PID／HWND 會列入保護基準。`bypass.bat` 只在使用者自行將 CSV 關聯程式指向它時生效，腳本不會更改系統關聯。
+
 > 執行期間請勿操作三竹視窗、滑鼠或鍵盤。腳本不執行下單，但會實際控制桌面與點擊三竹介面。
 
 ## 測試
@@ -37,10 +39,12 @@ exit $p.ExitCode
 - `tests/test_after_rank_export.ahk`
 - `tests/test_coords_click.ahk`
 - `tests/diagnose_export_btn.ahk`
+- `tests/test_excel_cleanup.ahk`（會啟動並關閉測試用 Excel）
+- `tests/capture_asset.ahk`（擷取介面圖檔）
 
 ## 後續工作
 
-- [ ] 匯出每個新 CSV 後，安全關閉本批次由三竹新開啟的 Excel；不得關閉使用者原本已開啟的 Excel。詳見 [TODO.md](TODO.md)。
+- [x] 匯出後依批次 Excel 基準清理新增視窗／程序；限制與驗證紀錄見 [TODO.md](TODO.md)。
 
 ## 文件
 

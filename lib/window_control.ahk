@@ -29,7 +29,7 @@ GetAfterRankWinTitle() {
  * @param {String} procName 視窗所屬程序名稱
  * @param {String} winTitle 視窗標題
  * @param {String} cfgProcName 設定檔中的三竹股市程序名稱
- * @returns {Boolean} 程序符合且標題精確等於已知三竹視窗時回傳 true
+ * @returns {Boolean} 程序名稱符合且標題精確等於主視窗、排行視窗或「綜合報價」時回傳 true
  */
 ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
     isMitakeProc := procName == cfgProcName
@@ -37,7 +37,7 @@ ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
         || InStr(procName, "三竹")
     if !isMitakeProc
         return false
-    for knownTitle in [GetMainWinTitle(), GetPopRankWinTitle(), GetAfterRankWinTitle()] {
+    for knownTitle in [GetMainWinTitle(), GetPopRankWinTitle(), GetAfterRankWinTitle(), "綜合報價"] {
         if (winTitle == knownTitle)
             return true
     }
@@ -45,7 +45,7 @@ ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
 }
 
 /**
- * 尋找三竹股市相關視窗 HWND (支援標題精確匹配與進程名稱備援)
+ * 只在設定的三竹程序中尋找標題完全相符的視窗 HWND；不以程序名稱單獨選取視窗
  * @param {String} winTitle 視窗標題 (預設為空，代表主程式視窗)
  * @returns {Integer} 視窗 HWND (若未找到則回傳 0)
  */
@@ -125,6 +125,7 @@ GetSafeForegroundContext(targetHwnd, &contextHwnd) {
 
 /**
  * 執行視窗客戶區座標點擊 (支援 control 與 physical 兩種點擊方式)
+ * physical 模式要求目標或可信選單浮層在前景；control 模式使用 ControlClick。
  * @param {Integer} clickX X 座標
  * @param {Integer} clickY Y 座標
  * @param {String|Integer} tgtWin 目標視窗 WinTitle 或 HWND (預設主視窗)
@@ -412,7 +413,7 @@ GetImgSize(imgPath, &width, &height) {
  * @param {Integer} winX2 搜尋區域右下 X
  * @param {Integer} winY2 搜尋區域右下 Y
  * @param {Integer} variation 色彩容許度 (0-255)
- * @param {String} tgtWin 指定目標視窗 (若未指定則使用主程式視窗)
+ * @param {String|Integer} tgtWin 指定目標視窗標題或 HWND (若未指定則使用主程式視窗)
  * @param {Boolean} shouldActivate 是否先激活視窗 (搜尋已展開之選單時應設為 false 以免關閉選單)
  * @returns {Object} {found: Boolean, x: Integer, y: Integer}
  */
@@ -514,8 +515,8 @@ GetAssetImgPath(assetName, tgtRes := "") {
  * 優先讀取 ClickX_{Resolution} / ClickY_{Resolution} (例如 ClickX_1920x1080, ClickX_2560x1440)，
  * 亦支援 {Resolution}_ClickX / {Resolution}_ClickY 命名格式；若未設定則回傳傳入之中性預設值。
  * @param {String} section INI 區段名稱 (例: "SecuritiesQuote", "PopularRanking", "AfterMarketRanking")
- * @param {Integer} defX 備用 X 座標預設值
- * @param {Integer} defY 備用 Y 座標預設值
+ * @param {Integer} defX 未設定或無效時的 X 備援值，預設 0
+ * @param {Integer} defY 未設定或無效時的 Y 備援值，預設 0
  * @param {String} tgtRes 可選的目標解析度字串 (例: "1920x1080" 或 "2560x1440")，預設抓取主顯示器解析度
  * @returns {Object} {x: Integer, y: Integer}
  */

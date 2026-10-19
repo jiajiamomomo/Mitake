@@ -10,7 +10,7 @@
 ---
 
 ## 二、 前置條件與環境 (Prerequisites)
-1. **防搶焦點機制**：三竹之資料匯出關聯程式設定指向 [bypass.bat](bypass.bat)，該批次檔啟動後立即結束退出，防止系統自動開啟 Excel 奪取前台焦點。
+1. **CSV 關聯程式**：若使用者自行將 CSV 關聯程式設為 [bypass.bat](bypass.bat)，該批次檔會立即結束；專案腳本不會修改系統關聯。批次亦會依 Excel 基準清理新增的視窗／程序。
 2. **匯出暫存目錄**：三竹股市預設匯出 CSV 路徑為 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_漲停鎖住.csv`）。
 3. **專案存放目的地**：`<專案根目錄>\熱門排行\YYYYMMDD\<原始檔名>.csv`。
 
@@ -56,17 +56,17 @@
 6. **點擊「資料匯出」(`ClickExportBtn`)**：
    - 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
    - **優先圖像辨識**：搜尋 `assets/{解析度}/資料匯出.png`（容許度 `variation := 45`），找到即點擊。
-   - **座標備援機制**：若圖像比對未命中，自動讀取 `config/settings.ini` 中 `[ExportButton]` 區段之解析度座標（1920x1080 預設為 `X=1777, Y=50`）降級點擊；若未設定座標則安全中止並記錄 WARN 日誌。
+   - **座標備援機制**：若圖像比對未命中，自動讀取 `config/settings.ini` 中 `[ExportButton]` 區段之解析度座標（1920x1080 目前設定 `X=1777, Y=50`）降級點擊；若未設定座標則安全中止並記錄 WARN 日誌。2560x1440 未設定備援座標。
    - 點擊後再次將游標移至 `(10, 10)` 避免 Hover 影響後續比對。
 7. **輪詢捕捉新 CSV (`WaitNewCsv`)**：
    - 在 `outDir` 尋找相較基準新增或內容已改變的 CSV，避免同一秒內覆寫舊檔造成漏判。
-   - 透過 `IsFileReady(csv)`（嘗試獨佔唯讀開啟）及連續兩次相同簽章，確認三竹已完成寫入。
+   - 透過 `IsFileReady(csv)`（可讀檢查）及連續兩次相同簽章，確認三竹已完成寫入；Excel 已開啟檔案時不要求獨佔讀取。
    - 逾時 `TimeoutMs` (10 秒) 或檔案未就緒則回傳失敗。
 8. **歸檔複製 (`CopyToDateDir`)**：
    - 將檔案複製至 `<專案根目錄>\熱門排行\<dateStr>\<原始檔名>.csv`（保留原檔名，同名覆蓋）。
 
 ### 2. 單項重試封裝：`ExportPopRankItem(itemNo, dateStr := "")`
-- 驗證序號合法性（必須為 $\ge 1$ 之整數）。
+- 驗證序號合法性（必須為 `1..TotalItems` 之整數）。
 - 進入迴圈執行 `TryExportPopRankItem`，最多自動重試 `MaxRetries` (2) 次。
 - 每次重試前主動調用 `ResetPopRankState()` 並插入 300 ms 間隔，確保復原至乾淨基準環境。
 
@@ -79,6 +79,7 @@
 - 即時累計成功與失敗清單，所有執行歷程輸出至 [logs/app.log](logs/app.log)。
 - 結束時顯示摘要訊息方塊（可透過 `showMsgBox := false` 抑制彈窗，供無頭測試與背景自動化使用）。
 - 批次結束或異常中止時以 `FinalizeCsvStage` 恢復未被取代的檔案；同名舊版保留於 `logs\out-backups\`，不直接刪除。
+- `BeginExportRun` 擷取 Excel PID／HWND 基準；CSV 複製成功、輪詢逾時及批次 `finally` 時清理相較基準新增的 Excel。此差集無法確認啟動來源，批次期間請勿另開 Excel。
 
 ---
 
@@ -110,18 +111,19 @@ PopRankExportHotkey =
 1. **系統托盤選單 (Tray Menu)**：點擊「匯出熱門排行」直接啟動批次作業。
 2. **自訂全域熱鍵**：可於 `settings.ini` 之 `[Hotkey]` 設定 `PopRankExportHotkey`。
 3. **實機手動測試工具**：執行 [tests/test_pop_rank_export.ahk](tests/test_pop_rank_export.ahk)。
-   - 按 `F9`：執行單一項目手動測試（預設 Item 1）。
-   - 按 `F10`：執行完整批次 44 項自動匯出測試。
-   - 按 `$Esc`：強制中斷正在執行的測試流程（使用鍵盤 hook 避免與內部 `Send("{Esc}")` 重設狀態互相干擾）。
+   - 不帶參數時由 `InputBox` 輸入序號（預設 1）。
+   - 傳入 `1..TotalItems` 匯出單項；傳入 `0` 或 `all` 執行完整批次。
+   - 按 `Esc` 會以退出碼 2 立即結束測試腳本；熱鍵使用 `$` 鍵盤 hook，避免內部 `Send("{Esc}")` 誤觸。
+   - 單項模式直接呼叫 `ExportPopRankItem`，不執行批次的 OUT 暫存與 Excel 基準保護流程。
 
 ---
 
 ## 七、 測試與驗證體系
 
 1. **無頭自動化單元測試**：[tests/test_export.ahk](tests/test_export.ahk)
-   - 透過暫存目錄驗證 `FindNewCsv`、`WaitNewCsv`、`CopyToDateDir`、`IsFileReady`。
-   - 驗證 `GetPopRankTotalItems` 預設值 (44) 與自訂讀取、`HasResAssets`、`PopRankAssets` 等純邏輯。
+   - 透過暫存目錄驗證 `FindNewCsv`、`WaitNewCsv`、`CopyToDateDir`、CSV 快照及暫存／復原。
+   - 驗證 `GetPopRankTotalItems` 設定值、`HasResAssets` 與下拉導航計畫等邏輯。
    - 整合於 [tests/run_tests.ahk](tests/run_tests.ahk) 全域測試套件。
 2. **實機診斷與校正工具**：
-   - [tests/diagnose_export_btn.ahk](tests/diagnose_export_btn.ahk)：驗證「資料匯出」圖像比對、座標計算與滑鼠平滑移動校正。
+   - [tests/diagnose_export_btn.ahk](tests/diagnose_export_btn.ahk)：檢視「資料匯出」圖像比對與座標備援，並可觸發測試點擊。
    - [tests/capture_asset.ahk](tests/capture_asset.ahk)：截取與更新按鈕與箭頭純淨圖檔資產。

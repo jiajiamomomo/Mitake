@@ -66,8 +66,8 @@ Source Tree:
 | Default | `Def` | `defVal`, `defX`, `defY` |
 | Target | `Tgt` | `tgtWin`, `tgtPath`, `tgtRes`, `tgtMon` |
 | Directory | `Dir` | `logDir`, `dirPath`, `GetRootDir` |
-| Hotkey | `HK` | `launchHk`, `menubarHk`, `HkLaunch` |
-| Handler | `Hnd` | `MenuLaunchHnd`, `HkLaunchHnd` |
+| Hotkey | `Hk` | `RegisterHk`, `hkDefs` |
+| Handler | `Hnd` | `MenuLaunchHnd`, `MenuAfterRankExportHnd` |
 | Popular Ranking (熱門排行) | `PopRank` | `GetPopRankWinTitle`, `ClickPopRankMenu` |
 | After-Market Ranking (盤後排行) | `AfterRank` | `GetAfterRankWinTitle`, `ClickAfterRankMenu` |
 | Securities Quote (證券行情) | `SecQuote` | `ClickSecQuoteMenu` |
@@ -119,6 +119,9 @@ Source Tree:
 | `SwitchToAfterMarketRankingWindow` | `SwitchToAfterRankWin` | 切換至「盤後排行」視窗 |
 
 ### `lib/export.ahk`
+
+以下「原函式名」為縮寫展開的語意對照；執行時使用「新縮短函式名」欄中的實際識別碼。
+
 | 原函式名 | 新縮短函式名 | 說明 |
 | :--- | :--- | :--- |
 | `ExportTimingConstants` | `ExportTiming` | 匯出流程時序常數 (寫死於程式) |
@@ -134,7 +137,7 @@ Source Tree:
 | `GetCsvSignature` | `GetCsvSignature` | 計算 CSV 修改時間、大小與內容雜湊簽章 |
 | `StageExistingCsvFiles` | `StageExistingCsvs` | 批次前暫存 OUT 目錄既有 CSV，避開同名衝突 |
 | `FinalizeCsvStaging` | `FinalizeCsvStage` | 恢復未被取代的 CSV 並保留同名舊版備份 |
-| `IsFileReady` | `IsFileReady` | 檢查檔案是否已寫入完成 |
+| `IsFileReady` | `IsFileReady` | 檢查檔案是否可讀；由連續相同簽章確認寫入完成 |
 | `WaitForNewCsv` | `WaitNewCsv` | 輪詢等待新 CSV 出現 |
 | `CopyToDateDirectory` | `CopyToDateDir` | 複製至 `YYYYMMDD` 子資料夾 (同名覆蓋) |
 | `HasResolutionAssets` | `HasResAssets` | 檢查指定解析度圖檔是否齊全 |
@@ -143,6 +146,7 @@ Source Tree:
 | `TryExportPopularRankingItem` | `TryExportPopRankItem` | 單次匯出單一項目 (不含重試) |
 | `ExportPopularRankingItem` | `ExportPopRankItem` | 匯出單一項目 (含重試) |
 | `ExportPopularRankingAll` | `ExportPopRankAll` | 批次匯出全部項目 |
+| `RunExportPopularRankingAll` | `RunExportPopRankAll` | 執行熱門排行前置檢查與項目迴圈 |
 | `AfterMarketRankingAssets` | `AfterRankAssets` | 盤後排行匯出所需圖檔清單 |
 | `GetAfterMarketRankingTotalItemsL` | `GetAfterRankTotalItemsL` | 讀取 `[AfterMarketRanking] TotalItemsL` (預設 5) |
 | `GetAfterMarketRankingTotalItemsR` | `GetAfterRankTotalItemsR` | 讀取 `[AfterMarketRanking] TotalItemsR{itemNoL}` (依規格預設) |
@@ -153,6 +157,7 @@ Source Tree:
 | `TryExportAfterMarketRankingItemR` | `TryExportAfterRankItemR` | 單次匯出右側子項目 (不含重試) |
 | `ExportAfterMarketRankingItemR` | `ExportAfterRankItemR` | 匯出右側子項目 (含重試) |
 | `ExportAfterMarketRankingAll` | `ExportAfterRankAll` | 批次匯出全部盤後排行項目 |
+| `RunExportAfterMarketRankingAll` | `RunExportAfterRankAll` | 執行盤後排行前置檢查與分類迴圈 |
 | `GetExcelProcessIds` | `GetExcelProcessIds` | 取得系統中所有 EXCEL.EXE 程序 PID (Toolhelp32Snapshot) |
 | `CaptureExcelBaseline` | `CaptureExcelBaseline` | 記錄批次開始前的 Excel PID 與視窗 HWND 基準 |
 | `FilterNewExportExcelWindows` | `FilterNewExportExcelWindows` | 純邏輯過濾：從視窗清單中排除基準受保護項目 |
@@ -198,7 +203,7 @@ Source Tree:
 2. **輸出路徑**：
    - 三竹匯出原始 CSV 預設輸出至 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_外資買超.csv`）。
 3. **二維分類項目結構**：
-   - 左側下拉清單（`盤後下拉L.png`）固定 5 個大分類。
+   - 左側下拉清單（`盤後下拉L.png`）目前在設定檔中列為 5 個大分類。
    - 右側下拉清單（`盤後下拉R.png`）之子項目數量依分類而異（共 36 項）：
 
 | 分類序號 (L) | 中文項目 | 英文縮寫 | 完整英文對照 | 右側子項目數量 (R) |
@@ -251,7 +256,7 @@ Source Tree:
   6. 滑鼠移至 `(10, 10)` 清除 Hover，等待 1500 ms 介面刷新。
   7. 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
   8. `ClickExportBtn()` 點擊「資料匯出」按鈕（優先圖像搜尋 `資料匯出.png`，失敗降級採用 `settings.ini` 之 `[ExportButton]` 座標），點擊後立即移開滑鼠。
-  9. `WaitNewCsv(outDir, baseline)` 尋找相較基準新增或內容已改變的 CSV，並以 `IsFileReady` 與連續兩次相同簽章確認寫入完成。
+  9. `WaitNewCsv(outDir, baseline)` 尋找相較基準新增或內容已改變的 CSV，並以可讀檢查與連續兩次相同簽章確認寫入完成；Excel 已開啟檔案時不要求獨佔讀取。
   10. `CopyToDateDir(csv, GetAfterRankDstRoot(), dateStr)`：複製覆蓋至 `<專案>\盤後排行\YYYYMMDD\<原始檔名>`。
 
 ### 3.5 批次全項目匯出 (`ExportAfterRankAll`)
@@ -261,6 +266,7 @@ Source Tree:
   - 若解析度不符或圖檔缺失，記錄 WARN 日誌並中止（`aborted := true`）。
 - **日期目錄決定**：批次開始時決定一次 `dateStr := FormatTime(A_Now, "yyyyMMdd")`，整批共用。
 - **既有 CSV 衝突隔離**：批次開始前暫存 OUT 目錄既有 CSV；結束時恢復未被取代的檔案，同名舊版保留於 `logs\out-backups\`，避免三竹拒絕覆寫後觸發同項重試。
+- **Excel 清理邊界**：批次開始時擷取 Excel PID／HWND 基準；CSV 複製成功、輪詢逾時及批次 `finally` 時清理相較基準新增的 Excel。差集無法確認啟動來源，批次期間請勿另開 Excel。
 - **巢狀執行與失敗熔斷**：
   - 外迴圈走訪分類 `itemNoL := 1..TotalItemsL` (5)。
   - 若外層分類 `itemNoL` 選取失敗：實施**立即熔斷 (Circuit Breaking)**，跳過該分類底下的所有子項目，並將其全部子項目（如 `L1-R1` ~ `L1-R10`）一次性記錄至失敗清單，避免級聯式的盲目重試。
@@ -321,12 +327,35 @@ AfterRankExportHotkey =
      - `L R` / `L,R` / `L-R`：執行特定分類下的指定子項目（例如 `1,3` 執行分類 1 之子項目 3）。
      - `L`（1~5）：執行指定分類下的所有子項目（例如 `2` 執行分類 2 的所有 10 項）。
      - 未帶參數時彈出互動式 `InputBox` 供使用者輸入。
+   - 指定分類或單一子項目時直接呼叫單項函式，沒有完整批次的 OUT 暫存與 Excel 基準保護；`0`／`all` 才呼叫 `ExportAfterRankAll`。
 
 ```
 `LESSONS_LEARNED.md`:
 
 ```md
 # 實機驗證 Lessons Learned
+
+## 2026-10-19：CSV 可讀檢查修正後再次實機驗證
+
+- 熱門排行 12:28:33–12:33:52 完成 44/44；盤後排行 12:37:39–12:40:52 完成 36/36，目的目錄分別有 44、36 個非空 CSV。
+- 相較同日上次驗證，CSV 輪詢逾時由 11 次降為 0，Excel 視窗消失競態警告由 12 組降為 0；沒有 Excel 正常關閉逾時或強制結束紀錄。
+- 熱門排行耗時由 7 分 03 秒降至 5 分 19 秒，盤後排行由 4 分 46 秒降至 3 分 13 秒（以開始與完成摘要時間計）。
+- 盤後排行 L#5 切換視窗時仍有一次前景焦點失敗，第一次重試即恢復，未影響 36/36 結果。因屬孤立事件，暫不更動焦點控制邏輯。
+
+## 2026-10-19：實機批次後的 CSV 等待與 Excel 視窗競態
+
+- 11:33–11:40 熱門排行 44/44、11:46–11:51 盤後排行 36/36；兩批輸出目錄分別有 44 與 36 個非空 CSV。
+- 日誌有 11 次 10 秒 CSV 等待逾時（熱門 5、盤後 6），重試後全部成功。等待中的 CSV 有些已顯示於 Excel 視窗標題，因此舊的 `IsFileReady` 獨佔讀取要求可能把 Excel 已開啟的 CSV 誤判為未就緒。
+- 以 Win32 讀取共享句柄重現：舊 `WaitNewCsv` 會逾時。改用可讀檢查，保留連續兩次相同的時間／大小／內容雜湊簽章判定完成；測試由紅燈轉綠燈。
+- 12 組 `Target window not found` 警告屬快照取得後 Excel 自行關閉的競態。視窗已消失時略過操作與警告，仍記錄真正存活視窗的關閉失敗。
+- 修正後無頭回歸 `163 Total, 163 Passed, 0 Failed`；再次互動桌面批次已確認逾時數量降至 0。
+
+## 2026-10-19：Excel 安全模式詢問
+
+- 現象：批次匯出期間反覆出現「Excel 上次無法啟動，是否要在安全模式中啟動？」。
+- 線索：`logs/app.log` 在多個項目記錄 `WinClose` 等待 1500ms 後 `ProcessClose`，也會在 Excel 尚未顯示視窗時直接強制結束程序。反覆非正常終止可能促使 Excel 下次啟動時顯示此詢問。
+- 修正：對本批次新增、且文字確實符合安全模式修復詢問的 Excel 對話框選「否」；其餘新 Excel 視窗採正常關閉，逾時只記錄 WARN，不強制終止程序。這能消除腳本自身反覆製造的非正常結束；三竹仍可能啟動 Excel，且既有修復詢問在被處理前可能短暫顯示。
+- 驗證：無頭回歸 `161 Total, 161 Passed, 0 Failed`；尚需互動桌面批次驗證提示是否消失、以及逾時時是否留下 Excel 視窗。
 
 ## 2026-10-09：熱門排行與盤後排行完整匯出驗證
 
@@ -361,10 +390,10 @@ AfterRankExportHotkey =
 - **症狀**：每匯出一個 CSV，三竹可能觸發關聯之 Microsoft Excel，批次數十項後系統堆疊大量 Excel 視窗與背景進程，干擾後續項目前景焦點並消耗資源。
 - **根因**：三竹內部寫死呼叫 ShellExecute 開啟匯出的 CSV，即使有 bypass.bat，若系統關聯恢復或非同步喚醒 Excel，仍會留下實體。
 - **修正**：實作 `CaptureExcelBaseline`、`FindNewExportExcelWindows` 與 `CloseNewExportExcels`：
-  1. 批次開始前以 Win32 `Toolhelp32Snapshot` 掃描記錄既有 PID 與 HWND 白名單基準，嚴格保護使用者既有 Excel 活頁簿不受干擾。
-  2. 每個 CSV 完成複製後立即正常關閉 (`WinClose`) 本次新增之 Excel；單項重試前也清理殘留視窗避免焦點奪取。
-  3. `finally` 區塊無死角兜底清理本批次新增視窗與殭屍進程，涵蓋正常完成、`Esc` 中止與例外錯誤。
-  4. 逾時未退出且確認屬於本批次新啟動者，以 `ProcessClose` 安全回收並記錄 WARN 日誌，清理失敗絕不中斷 CSV 歸檔。
+  1. 批次開始前以 Win32 `Toolhelp32Snapshot` 掃描既有 PID，另記錄頂層視窗 HWND 作為保護基準。
+  2. 每個 CSV 完成複製後立即正常關閉 (`WinClose`) 相較基準新增的 Excel；CSV 輪詢逾時準備重試前也清理殘留視窗避免焦點奪取。
+  3. `finally` 區塊再次清理相較基準新增的視窗與程序，涵蓋正常完成、`Esc` 中止與例外錯誤。
+  4. 逾時未退出且 PID 不在基準中時，以 `ProcessClose` 回收並記錄 WARN 日誌；差集無法確認啟動來源，批次期間另開的 Excel 也可能被清理。清理失敗不中斷 CSV 歸檔。
 
 ## 維護準則
 
@@ -522,6 +551,8 @@ MenuShowResHnd(*) {
 
 批次開始前，腳本會暫存三竹 `USER\OUT` 中既有的 CSV，避免三竹因同名檔已存在而拒絕重新輸出。未被本次輸出取代的檔案會在結束時恢復；同名舊版會保留在 `logs\out-backups\` 供復原。
 
+每項 CSV 複製完成後，腳本會正常關閉相較批次開始時新增的 Excel 視窗，並在批次結束時再次清理。若遇到 Excel「上次無法啟動／安全模式」詢問，會自動選「否」取消該次啟動。為避免反覆觸發安全模式，正常關閉逾時不再強制結束 Excel；此時會留下 WARN 日誌供檢查。判斷依據是 Excel PID／HWND 差集，無法確認啟動來源；批次期間請勿另外開啟 Excel。已在批次開始前存在的 Excel PID／HWND 會列入保護基準。`bypass.bat` 只在使用者自行將 CSV 關聯程式指向它時生效，腳本不會更改系統關聯。
+
 > 執行期間請勿操作三竹視窗、滑鼠或鍵盤。腳本不執行下單，但會實際控制桌面與點擊三竹介面。
 
 ## 測試
@@ -540,10 +571,12 @@ exit $p.ExitCode
 - `tests/test_after_rank_export.ahk`
 - `tests/test_coords_click.ahk`
 - `tests/diagnose_export_btn.ahk`
+- `tests/test_excel_cleanup.ahk`（會啟動並關閉測試用 Excel）
+- `tests/capture_asset.ahk`（擷取介面圖檔）
 
 ## 後續工作
 
-- [ ] 匯出每個新 CSV 後，安全關閉本批次由三竹新開啟的 Excel；不得關閉使用者原本已開啟的 Excel。詳見 [TODO.md](TODO.md)。
+- [x] 匯出後依批次 Excel 基準清理新增視窗／程序；限制與驗證紀錄見 [TODO.md](TODO.md)。
 
 ## 文件
 
@@ -562,7 +595,7 @@ exit $p.ExitCode
 
 ## 已完成項目
 
-### [x] P1：匯出後關閉三竹新開啟的 Excel (已於 2026-10-10 完成)
+### [x] P1：匯出後依批次基準清理新增的 Excel (已於 2026-10-10 完成)
 
 #### 背景與問題
 
@@ -572,19 +605,23 @@ exit $p.ExitCode
 
 1. **白名單基準建立 (`CaptureExcelBaseline`)**：
    - 批次啟動前以 Win32 `Toolhelp32Snapshot` 高速掃描並記錄既有 `EXCEL.EXE` PID 與頂層視窗 HWND。
-   - 批次開始前已開啟的 Excel 與活頁簿嚴格列入保護白名單，絕不被清理或終止。
+   - 批次開始前已存在的 Excel PID 與頂層 HWND 列入保護基準；後續在同一既有 PID 開啟的新視窗也會因 PID 保護而略過。
 2. **新增視窗與程序差集過濾 (`FilterNewExportExcelWindows` / `FilterNewExportExcelProcesses`)**：
-   - 相較基準新增的 Excel 視窗與程序被精確辨識，並徹底隔離受保護 PID。
+   - 以 PID／HWND 差集找出相較基準新增的 Excel，排除受保護 PID／HWND。
 3. **優雅退出與超時防護 (`CloseNewExportExcels`)**：
-   - 優先以 `WinClose` 發送標準關閉訊息並輪詢確認；若逾時且確認屬於本批次新開啟，則安全回收程序並記錄警告日誌。
+   - 以 `WinClose` 發送標準關閉訊息並輪詢確認；若逾時，保留程序並記錄警告日誌，避免反覆強制結束造成 Excel 安全模式詢問。符合該詢問時自動選「否」。
    - 清理失敗不中斷 CSV 歸檔流程。
 4. **生命週期全路徑整合**：
    - 單項匯出確認完成複製後立即清理，防止後續項目焦點被劫持。
    - 輪詢逾時準備重試前清理殘留 Excel，確保重試視窗乾淨。
    - 在 `ExportPopRankAll` 與 `ExportAfterRankAll` 的 `finally` 區塊進行兜底清理，涵蓋正常完成、`Esc` 中止、例外錯誤所有路徑。
 5. **測試與驗證覆蓋**：
-   - **無頭測試**：覆蓋基準建立、既有 PID 保護過濾、新增視窗過濾、清理冪等性與 `ExportRunState` 生命週期 (`157 Total, 157 Passed, 0 Failed`)。
+   - **無頭測試**：覆蓋基準建立、既有 PID 保護過濾、新增視窗過濾、清理冪等性、安全模式詢問辨識、CSV 共享讀取與 `ExportRunState` 生命週期 (`163 Total, 163 Passed, 0 Failed`)。
    - **實機驗證**：透過 `tests/test_excel_cleanup.ahk` 實機啟動 Excel 進行生命週期驗證（5/5 步驟全數通過，正常關閉視窗並回收進程，既有基準不受干擾）。
+
+**已知邊界**：差集無法辨識新增 Excel 的啟動來源；批次期間若使用者或其他程式另開 Excel，也可能被清理。執行批次時請勿另開 Excel。手動單項驗證未經 `BeginExportRun` 建立批次基準，僅會在複製完成時擷取當下基準，無法比照完整批次清理先前開啟的 Excel。
+
+**再次實機驗證（2026-10-19）**：熱門排行 44/44、盤後排行 36/36；CSV 等待逾時 0 次、Excel 視窗消失競態警告 0 組、正常關閉逾時 0 次。盤後排行 L#5 有一次前景焦點失敗，第一次重試即恢復。詳細數據見 `LESSONS_LEARNED.md`。
 
 ---
 
@@ -666,7 +703,7 @@ exit $p.ExitCode
 │   ├── diagnose_export_btn.ahk # 資料匯出按鈕點擊診斷腳本
 │   └── helpers/              # 測試輔助模組 (斷言庫)
 │       └── assert.ahk
-├── bypass.bat                # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
+├── bypass.bat                # csv檔之關聯程式 (期望三竹匯出後立即結束阻止 Excel 開啟；但無效)
 ├── logs/                     # 執行日誌輸出 (app.log 等)
 ├── 熱門排行/                 # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
 └── 盤後排行/                 # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
@@ -679,7 +716,7 @@ exit $p.ExitCode
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
 - [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
 - [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
-- [x] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
+- [x] **匯出後 Excel 清理**：依批次開始時的 PID／HWND 基準清理新增 Excel；差集無法辨識啟動來源，執行期間不可另開 Excel。詳參 `TODO.md`。
 
 ---
 
@@ -739,9 +776,9 @@ exit $p.ExitCode
 10. **Windows 最小化視窗解除與前台焦點鎖定突破 (ASFW)**：
    - 對處於最小化（`WinGetMinMax == -1`）的視窗單純呼叫 `WinActivate` 無法可靠還原（常只在工作列閃爍）。
    - 解決方案：必須先調用 `WinRestore(hwnd)`，並配合 `DllCall("user32\AllowSetForegroundWindow", "Int", -1)` 與 `DllCall("user32\SetForegroundWindow", "Ptr", hwnd)` 突破前台鎖定，再進行激活與最大化。
-11. **同進程多視窗之標題精確匹配與備援 (`FindMitakeWin`)**：
+11. **同進程多視窗之程序與標題精確匹配 (`FindMitakeWin`)**：
    - 三竹股市主程式視窗與子視窗（「熱門排行」、「盤後排行」）屬於同一程序（`三竹股市.exe`）。若僅以 `ahk_exe 三竹股市.exe` 比對，會誤抓頂層子視窗。
-   - 解決方案：視窗定位應以標題精確區分（`"三竹股市"`、`"熱門排行"`、`"盤後排行"`），並統一封裝於 `FindMitakeWin(winTitle)` 中處理精確標題與進程名稱備援。
+   - 解決方案：`FindMitakeWin(winTitle)` 只在設定的三竹程序視窗中尋找完全相符的標題（`"三竹股市"`、`"熱門排行"`、`"盤後排行"`）；不以程序名稱單獨選取視窗。
 12. **顯示器邊界計算與真實物理 DPI 解析度偵測**：
    - **多螢幕邊界計算**：多螢幕環境中若副螢幕位於主螢幕左方或上方，其邊界座標可能為負數，計算寬高必須使用差值：`Width := Right - Left`、`Height := Bottom - Top`。
    - **DPI 虛擬化避坑**：透過第三方環境（如 .NET）偵測螢幕解析度時，若啟用了系統 DPI 縮放會回傳虛擬化後的邏輯尺寸。解析度偵測一律應依賴 AHK v2 原生 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界。
@@ -804,6 +841,8 @@ exit
 `config\settings.ini`:
 
 ```ini
+; 檔案須維持 UTF-16 LE BOM；EnsureIniEnc 會於讀取前檢查與轉換。
+; ClickMethod 未設定時使用 physical；可設為 control 改用 ControlClick。
 [App]
 Path = D:\Program Files\MitakeGU\三竹股市.exe
 ProcessName = 三竹股市.exe
@@ -822,6 +861,7 @@ AfterMarketRankingHotkey =
 PopRankExportHotkey = 
 AfterRankExportHotkey = 
 
+; TriggerMode：click 使用下方座標；image 優先圖檔並退回座標；其他值送出 TriggerKey。
 [MenuBar]
 TriggerMode = click
 TriggerKey = {Alt}
@@ -857,6 +897,8 @@ TotalItemsR4 = 8
 TotalItemsR5 = 4
 OutDir = D:\Program Files\MitakeGU\USER\OUT
 
+; 資料匯出優先使用對應解析度圖檔；只有完整設定 X/Y 時才可座標備援。
+; 2560x1440 未校正座標，刻意留空：圖檔未命中時安全失敗，不盲點。
 [ExportButton]
 ClickX_1920x1080 = 1777
 ClickY_1920x1080 = 50
@@ -867,8 +909,9 @@ ClickY_1920x1080 = 50
 #Requires AutoHotkey v2.0
 
 ; =============================================================================
-; 匯出模組：對「熱門排行」各項目執行「資料匯出」並將 CSV 複製至專案目錄
-; 三竹匯出後呼叫的關聯程式由 bypass.bat 立即結束，CSV 會留在 USER\OUT\ 目錄
+; 匯出模組：批次匯出「熱門排行」與「盤後排行」CSV，複製至專案日期目錄
+; 三竹在點擊「資料匯出」後會喚醒 Excel 或第三方應用而奪取前台焦點
+; `bypass.bat`無效
 ; =============================================================================
 
 /**
@@ -946,6 +989,7 @@ BeginExportRun(kind, showMsgBox := true) {
     ExportRunState.CancelRequested := false
     ExportRunState.Kind := kind
     ExportRunState.ExcelBaseline := CaptureExcelBaseline()
+    SetTimer(DismissNewExcelSafeModePrompts, 100)
     SetExportUiEnabled(false)
     return true
 }
@@ -959,6 +1003,7 @@ RequestExportCancel() {
 }
 
 EndExportRun() {
+    SetTimer(DismissNewExcelSafeModePrompts, 0)
     SetExportUiEnabled(true)
     ExportRunState.Busy := false
     ExportRunState.CancelRequested := false
@@ -1135,13 +1180,13 @@ FindNewCsv(outDir, sinceOrBaseline) {
 }
 
 /**
- * 判斷檔案是否已寫入完成 (可被獨佔開啟)
+ * 判斷檔案是否可讀；寫入完成仍由 WaitNewCsv 的兩次相同簽章確認。
  * @param {String} path 檔案路徑
  * @returns {Boolean}
  */
 IsFileReady(path) {
     try {
-        f := FileOpen(path, "r -rwd")
+        f := FileOpen(path, "r")
         if !f
             return false
         f.Close()
@@ -1236,7 +1281,7 @@ GetExcelProcessIds() {
 }
 
 /**
- * 記錄批次開始前的 Excel PID 與頂層視窗 HWND 基準
+ * 記錄批次開始前的 Excel PID 與頂層視窗 HWND 基準；差集無法辨識新程序由誰啟動
  * @returns {Object} { pids: Map, hwnds: Map }
  */
 CaptureExcelBaseline() {
@@ -1336,48 +1381,82 @@ FindNewExportExcelProcesses(baseline) {
     return FilterNewExportExcelProcesses(currPids, baseline)
 }
 
+IsExcelSafeModePrompt(winClass, dialogText) {
+    if (winClass != "#32770")
+        return false
+    return (InStr(dialogText, "安全模式") && InStr(dialogText, "無法啟動"))
+        || (InStr(StrLower(dialogText), "safe mode") && InStr(StrLower(dialogText), "start last time"))
+}
+
+; 只處理本批次新 Excel 的啟動修復詢問，選「否」取消這次 Excel 啟動。
+DismissExcelSafeModePrompt(item) {
+    try {
+        if (WinGetClass(item.hwnd) != "#32770")
+            return false
+        controls := WinGetControls(item.hwnd)
+        dialogText := ""
+        for ctrl in controls {
+            try dialogText .= ControlGetText(ctrl, item.hwnd) "`n"
+        }
+        if !IsExcelSafeModePrompt("#32770", dialogText)
+            return false
+        for ctrl in controls {
+            if (SubStr(ctrl, 1, 6) != "Button")
+                continue
+            label := Trim(ControlGetText(ctrl, item.hwnd))
+            if (SubStr(label, 1, 1) == "否" || RegExMatch(label, "i)^No(?:\W|$)")) {
+                ControlClick(ctrl, item.hwnd)
+                LogMsg(Format("已取消本批次 Excel 安全模式啟動詢問 (PID: {1})", item.pid), "INFO")
+                return true
+            }
+        }
+    } catch as err {
+        ; Excel 自行結束時，快照中的 HWND 可能已失效；這是正常競態。
+        if WinExist(item.hwnd)
+            LogMsg(Format("處理 Excel 安全模式詢問失敗 (PID: {1}): {2}", item.pid, err.Message), "WARN")
+    }
+    return false
+}
+
+DismissNewExcelSafeModePrompts() {
+    if !IsExportRunActive() || !IsObject(ExportRunState.ExcelBaseline)
+        return
+    for item in FindNewExportExcelWindows(ExportRunState.ExcelBaseline)
+        DismissExcelSafeModePrompt(item)
+}
+
 /**
- * 關閉相較基準新增由三竹開啟的 Excel 視窗與程序
- * 優先採用 WinClose 正常關閉，若逾時且確認屬於本批次新開啟，則終止程序。
+ * 關閉相較批次基準新增的 Excel 視窗與程序
+ * 僅以 PID/HWND 差集判斷，無法確認啟動來源；批次期間使用者另開的 Excel 也可能被清理。
+ * 以 WinClose 正常關閉；不強制終止 Excel，以免下次啟動進入安全模式詢問。
  * 清理失敗不中斷流程，詳細記錄日誌。
  * @param {Object} baseline 基準物件
- * @param {Integer} timeoutMs 正常關閉確認逾時毫秒 (預設 1500ms)
+ * @param {Integer} timeoutMs 正常關閉確認逾時毫秒 (預設 3000ms)
  * @returns {Object} { closedWins: Integer, closedPids: Integer, failed: Array }
  */
-CloseNewExportExcels(baseline, timeoutMs := 1500) {
+CloseNewExportExcels(baseline, timeoutMs := 3000) {
     result := { closedWins: 0, closedPids: 0, failed: [] }
     if !IsObject(baseline) || !baseline.HasProp("pids") || !baseline.HasProp("hwnds")
         return result
 
     try {
         newWins := FindNewExportExcelWindows(baseline)
-        if (newWins.Length == 0) {
-            ; 檢查是否有無視窗殘留之新增 Excel 程序
-            newPids := FindNewExportExcelProcesses(baseline)
-            for pid in newPids {
-                if baseline.pids.Has(pid)
-                    continue
-                try {
-                    ProcessClose(pid)
-                    result.closedPids++
-                    LogMsg(Format("已終止三竹殘留無效 Excel 程序 (PID: {1})", pid), "INFO")
-                } catch as err {
-                    result.failed.Push(Format("PID {1}: {2}", pid, err.Message))
-                    LogMsg(Format("終止殘留 Excel 程序失敗 (PID: {1}): {2}", pid, err.Message), "WARN")
-                }
-            }
+        if (newWins.Length == 0)
             return result
-        }
 
         ; 1. 對所有新增視窗發送 WinClose 正常關閉
-        targetPids := Map()
         for item in newWins {
+            if !WinExist(item.hwnd)
+                continue
+            if DismissExcelSafeModePrompt(item)
+                continue
+            if !WinExist(item.hwnd)
+                continue
             LogMsg(Format("正在正常關閉三竹匯出開啟之 Excel 視窗 (HWND: {1}, PID: {2}, 標題: '{3}')", item.hwnd, item.pid, item.title), "INFO")
-            if (item.pid)
-                targetPids[item.pid] := true
             try WinClose(item.hwnd)
             catch as err {
-                LogMsg(Format("傳送 WinClose 失敗 (HWND: {1}): {2}", item.hwnd, err.Message), "WARN")
+                if WinExist(item.hwnd)
+                    LogMsg(Format("傳送 WinClose 失敗 (HWND: {1}): {2}", item.hwnd, err.Message), "WARN")
             }
         }
 
@@ -1400,38 +1479,11 @@ CloseNewExportExcels(baseline, timeoutMs := 1500) {
             Sleep(50)
         }
 
-        ; 3. 逾時處理：若視窗仍未關閉，依安全條件終止確認為本批次新增之程序
+        ; 3. 逾時只記錄；強制終止會讓 Excel 下次啟動再詢問安全模式。
         if (pendingWins.Length > 0) {
             for item in pendingWins {
-                ; 嚴格保護：絕不終止基準中的既有 PID 或 HWND
-                if (baseline.hwnds.Has(item.hwnd) || (item.pid && baseline.pids.Has(item.pid))) {
-                    LogMsg(Format("安全防護攔截：視窗 (HWND: {1}, PID: {2}) 屬於受保護基準，略過強制終止", item.hwnd, item.pid), "ERROR")
-                    continue
-                }
-                LogMsg(Format("Excel 視窗正常關閉逾時 ({1}ms)，強制結束新增程序 (PID: {2}, 標題: '{3}')", timeoutMs, item.pid, item.title), "WARN")
-                if (item.pid && ProcessExist(item.pid)) {
-                    try {
-                        ProcessClose(item.pid)
-                        ProcessWaitClose(item.pid, 0.5)
-                        result.closedPids++
-                    } catch as err {
-                        result.failed.Push(Format("HWND {1}/PID {2}: {3}", item.hwnd, item.pid, err.Message))
-                        LogMsg(Format("強制結束 Excel 程序失敗 (PID: {1}): {2}", item.pid, err.Message), "ERROR")
-                    }
-                }
-            }
-        }
-
-        ; 4. 檢查是否有剩餘未清理的新增 Excel 程序
-        for pid in FindNewExportExcelProcesses(baseline) {
-            if baseline.pids.Has(pid)
-                continue
-            try {
-                ProcessClose(pid)
-                result.closedPids++
-                LogMsg(Format("清理新增 Excel 程序 (PID: {1})", pid), "INFO")
-            } catch as err {
-                result.failed.Push(Format("PID {1}: {2}", pid, err.Message))
+                LogMsg(Format("Excel 視窗正常關閉逾時 ({1}ms)，保留程序避免觸發安全模式 (PID: {2}, 標題: '{3}')", timeoutMs, item.pid, item.title), "WARN")
+                result.failed.Push(Format("HWND {1}/PID {2}: 正常關閉逾時", item.hwnd, item.pid))
             }
         }
     } catch as topErr {
@@ -1546,7 +1598,7 @@ TryExportPopRankItem(itemNo, dateStr) {
     ; 6. 等待資料刷新
     Sleep(ExportTiming.RefreshDelayMs)
 
-    ; 7. 點擊資料匯出 (記錄觸發時間以辨識新產生的 CSV；圖像辨識失敗時退回 settings.ini 座標)
+    ; 7. 點擊資料匯出 (先擷取 CSV 快照，圖像辨識失敗時退回 settings.ini 座標)
     outDir := GetExportOutDir("PopularRanking")
     baseline := CaptureCsvState(outDir)
     if !ClickExportBtn(winTitle, res) {
@@ -1754,9 +1806,9 @@ ResetAfterRankState(tgtWin := "") {
  * 執行單次「盤後排行」左側下拉項目選取 (不含重試)
  * 1. SwitchToAfterRankWin()
  * 2. FindClickImg("盤後下拉L.png")
- * 3. Send("{Home}") + PgUp 批次歸位
- * 4. Send("{Down}") × (itemNoL - 1)
- * 5. Send("{Enter}")
+ * 3. 以 SendEvent 分別送出 Home 與五次 PgUp 脈衝歸位
+ * 4. 送出 (itemNoL - 1) 次獨立 Down 脈衝
+ * 5. 送出 Enter 脈衝
  * 6. Sleep 等待資料刷新
  * @param {Integer} itemNoL 左側項目序號 (1 起算)
  * @returns {Boolean} 是否選取成功
@@ -1835,9 +1887,9 @@ ExportAfterRankItemL(itemNoL) {
  * 執行單次「盤後排行」右側下拉項目匯出 (不含重試)
  * 1. 確保切換至「盤後排行」視窗 (防止被 Excel 等程式搶走焦點)
  * 2. FindClickImg("盤後下拉R.png")
- * 3. Send("{Home}") + PgUp 批次歸位
- * 4. Send("{Down}") × (itemNoR - 1)
- * 5. Send("{Enter}")
+ * 3. 以 SendEvent 分別送出 Home 與五次 PgUp 脈衝歸位
+ * 4. 送出 (itemNoR - 1) 次獨立 Down 脈衝
+ * 5. 送出 Enter 脈衝
  * 6. Sleep 等待資料刷新
  * 7. 擷取 CSV 基準快照 → FindClickImg("資料匯出.png")
  * 8. 輪詢 OutDir 尋找相較快照新增或內容已變更的 CSV
@@ -2323,7 +2375,7 @@ GetAfterRankWinTitle() {
  * @param {String} procName 視窗所屬程序名稱
  * @param {String} winTitle 視窗標題
  * @param {String} cfgProcName 設定檔中的三竹股市程序名稱
- * @returns {Boolean} 程序符合且標題精確等於已知三竹視窗時回傳 true
+ * @returns {Boolean} 程序名稱符合且標題精確等於主視窗、排行視窗或「綜合報價」時回傳 true
  */
 ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
     isMitakeProc := procName == cfgProcName
@@ -2331,7 +2383,7 @@ ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
         || InStr(procName, "三竹")
     if !isMitakeProc
         return false
-    for knownTitle in [GetMainWinTitle(), GetPopRankWinTitle(), GetAfterRankWinTitle()] {
+    for knownTitle in [GetMainWinTitle(), GetPopRankWinTitle(), GetAfterRankWinTitle(), "綜合報價"] {
         if (winTitle == knownTitle)
             return true
     }
@@ -2339,7 +2391,7 @@ ShouldMaximizeMitakeWin(procName, winTitle, cfgProcName) {
 }
 
 /**
- * 尋找三竹股市相關視窗 HWND (支援標題精確匹配與進程名稱備援)
+ * 只在設定的三竹程序中尋找標題完全相符的視窗 HWND；不以程序名稱單獨選取視窗
  * @param {String} winTitle 視窗標題 (預設為空，代表主程式視窗)
  * @returns {Integer} 視窗 HWND (若未找到則回傳 0)
  */
@@ -2419,6 +2471,7 @@ GetSafeForegroundContext(targetHwnd, &contextHwnd) {
 
 /**
  * 執行視窗客戶區座標點擊 (支援 control 與 physical 兩種點擊方式)
+ * physical 模式要求目標或可信選單浮層在前景；control 模式使用 ControlClick。
  * @param {Integer} clickX X 座標
  * @param {Integer} clickY Y 座標
  * @param {String|Integer} tgtWin 目標視窗 WinTitle 或 HWND (預設主視窗)
@@ -2706,7 +2759,7 @@ GetImgSize(imgPath, &width, &height) {
  * @param {Integer} winX2 搜尋區域右下 X
  * @param {Integer} winY2 搜尋區域右下 Y
  * @param {Integer} variation 色彩容許度 (0-255)
- * @param {String} tgtWin 指定目標視窗 (若未指定則使用主程式視窗)
+ * @param {String|Integer} tgtWin 指定目標視窗標題或 HWND (若未指定則使用主程式視窗)
  * @param {Boolean} shouldActivate 是否先激活視窗 (搜尋已展開之選單時應設為 false 以免關閉選單)
  * @returns {Object} {found: Boolean, x: Integer, y: Integer}
  */
@@ -2808,8 +2861,8 @@ GetAssetImgPath(assetName, tgtRes := "") {
  * 優先讀取 ClickX_{Resolution} / ClickY_{Resolution} (例如 ClickX_1920x1080, ClickX_2560x1440)，
  * 亦支援 {Resolution}_ClickX / {Resolution}_ClickY 命名格式；若未設定則回傳傳入之中性預設值。
  * @param {String} section INI 區段名稱 (例: "SecuritiesQuote", "PopularRanking", "AfterMarketRanking")
- * @param {Integer} defX 備用 X 座標預設值
- * @param {Integer} defY 備用 Y 座標預設值
+ * @param {Integer} defX 未設定或無效時的 X 備援值，預設 0
+ * @param {Integer} defY 未設定或無效時的 Y 備援值，預設 0
  * @param {String} tgtRes 可選的目標解析度字串 (例: "1920x1080" 或 "2560x1440")，預設抓取主顯示器解析度
  * @returns {Object} {x: Integer, y: Integer}
  */
@@ -3007,7 +3060,7 @@ SwitchToAfterRankWin(timeout := 5) {
 ---
 
 ## 二、 前置條件與環境 (Prerequisites)
-1. **防搶焦點機制**：三竹之資料匯出關聯程式設定指向 [bypass.bat](bypass.bat)，該批次檔啟動後立即結束退出，防止系統自動開啟 Excel 奪取前台焦點。
+1. **CSV 關聯程式**：若使用者自行將 CSV 關聯程式設為 [bypass.bat](bypass.bat)，該批次檔會立即結束；專案腳本不會修改系統關聯。批次亦會依 Excel 基準清理新增的視窗／程序。
 2. **匯出暫存目錄**：三竹股市預設匯出 CSV 路徑為 `D:\Program Files\MitakeGU\USER\OUT\`（例：`20261002_漲停鎖住.csv`）。
 3. **專案存放目的地**：`<專案根目錄>\熱門排行\YYYYMMDD\<原始檔名>.csv`。
 
@@ -3053,17 +3106,17 @@ SwitchToAfterRankWin(timeout := 5) {
 6. **點擊「資料匯出」(`ClickExportBtn`)**：
    - 點擊前以 `CaptureCsvState(outDir)` 擷取既有 CSV 的路徑與內容簽章基準。
    - **優先圖像辨識**：搜尋 `assets/{解析度}/資料匯出.png`（容許度 `variation := 45`），找到即點擊。
-   - **座標備援機制**：若圖像比對未命中，自動讀取 `config/settings.ini` 中 `[ExportButton]` 區段之解析度座標（1920x1080 預設為 `X=1777, Y=50`）降級點擊；若未設定座標則安全中止並記錄 WARN 日誌。
+   - **座標備援機制**：若圖像比對未命中，自動讀取 `config/settings.ini` 中 `[ExportButton]` 區段之解析度座標（1920x1080 目前設定 `X=1777, Y=50`）降級點擊；若未設定座標則安全中止並記錄 WARN 日誌。2560x1440 未設定備援座標。
    - 點擊後再次將游標移至 `(10, 10)` 避免 Hover 影響後續比對。
 7. **輪詢捕捉新 CSV (`WaitNewCsv`)**：
    - 在 `outDir` 尋找相較基準新增或內容已改變的 CSV，避免同一秒內覆寫舊檔造成漏判。
-   - 透過 `IsFileReady(csv)`（嘗試獨佔唯讀開啟）及連續兩次相同簽章，確認三竹已完成寫入。
+   - 透過 `IsFileReady(csv)`（可讀檢查）及連續兩次相同簽章，確認三竹已完成寫入；Excel 已開啟檔案時不要求獨佔讀取。
    - 逾時 `TimeoutMs` (10 秒) 或檔案未就緒則回傳失敗。
 8. **歸檔複製 (`CopyToDateDir`)**：
    - 將檔案複製至 `<專案根目錄>\熱門排行\<dateStr>\<原始檔名>.csv`（保留原檔名，同名覆蓋）。
 
 ### 2. 單項重試封裝：`ExportPopRankItem(itemNo, dateStr := "")`
-- 驗證序號合法性（必須為 $\ge 1$ 之整數）。
+- 驗證序號合法性（必須為 `1..TotalItems` 之整數）。
 - 進入迴圈執行 `TryExportPopRankItem`，最多自動重試 `MaxRetries` (2) 次。
 - 每次重試前主動調用 `ResetPopRankState()` 並插入 300 ms 間隔，確保復原至乾淨基準環境。
 
@@ -3076,6 +3129,7 @@ SwitchToAfterRankWin(timeout := 5) {
 - 即時累計成功與失敗清單，所有執行歷程輸出至 [logs/app.log](logs/app.log)。
 - 結束時顯示摘要訊息方塊（可透過 `showMsgBox := false` 抑制彈窗，供無頭測試與背景自動化使用）。
 - 批次結束或異常中止時以 `FinalizeCsvStage` 恢復未被取代的檔案；同名舊版保留於 `logs\out-backups\`，不直接刪除。
+- `BeginExportRun` 擷取 Excel PID／HWND 基準；CSV 複製成功、輪詢逾時及批次 `finally` 時清理相較基準新增的 Excel。此差集無法確認啟動來源，批次期間請勿另開 Excel。
 
 ---
 
@@ -3107,20 +3161,21 @@ PopRankExportHotkey =
 1. **系統托盤選單 (Tray Menu)**：點擊「匯出熱門排行」直接啟動批次作業。
 2. **自訂全域熱鍵**：可於 `settings.ini` 之 `[Hotkey]` 設定 `PopRankExportHotkey`。
 3. **實機手動測試工具**：執行 [tests/test_pop_rank_export.ahk](tests/test_pop_rank_export.ahk)。
-   - 按 `F9`：執行單一項目手動測試（預設 Item 1）。
-   - 按 `F10`：執行完整批次 44 項自動匯出測試。
-   - 按 `$Esc`：強制中斷正在執行的測試流程（使用鍵盤 hook 避免與內部 `Send("{Esc}")` 重設狀態互相干擾）。
+   - 不帶參數時由 `InputBox` 輸入序號（預設 1）。
+   - 傳入 `1..TotalItems` 匯出單項；傳入 `0` 或 `all` 執行完整批次。
+   - 按 `Esc` 會以退出碼 2 立即結束測試腳本；熱鍵使用 `$` 鍵盤 hook，避免內部 `Send("{Esc}")` 誤觸。
+   - 單項模式直接呼叫 `ExportPopRankItem`，不執行批次的 OUT 暫存與 Excel 基準保護流程。
 
 ---
 
 ## 七、 測試與驗證體系
 
 1. **無頭自動化單元測試**：[tests/test_export.ahk](tests/test_export.ahk)
-   - 透過暫存目錄驗證 `FindNewCsv`、`WaitNewCsv`、`CopyToDateDir`、`IsFileReady`。
-   - 驗證 `GetPopRankTotalItems` 預設值 (44) 與自訂讀取、`HasResAssets`、`PopRankAssets` 等純邏輯。
+   - 透過暫存目錄驗證 `FindNewCsv`、`WaitNewCsv`、`CopyToDateDir`、CSV 快照及暫存／復原。
+   - 驗證 `GetPopRankTotalItems` 設定值、`HasResAssets` 與下拉導航計畫等邏輯。
    - 整合於 [tests/run_tests.ahk](tests/run_tests.ahk) 全域測試套件。
 2. **實機診斷與校正工具**：
-   - [tests/diagnose_export_btn.ahk](tests/diagnose_export_btn.ahk)：驗證「資料匯出」圖像比對、座標計算與滑鼠平滑移動校正。
+   - [tests/diagnose_export_btn.ahk](tests/diagnose_export_btn.ahk)：檢視「資料匯出」圖像比對與座標備援，並可觸發測試點擊。
    - [tests/capture_asset.ahk](tests/capture_asset.ahk)：截取與更新按鈕與箭頭純淨圖檔資產。
 
 ```

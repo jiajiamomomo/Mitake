@@ -68,7 +68,7 @@
 │   ├── diagnose_export_btn.ahk # 資料匯出按鈕點擊診斷腳本
 │   └── helpers/              # 測試輔助模組 (斷言庫)
 │       └── assert.ahk
-├── bypass.bat                # 三竹匯出後呼叫之關聯程式 (立即結束，阻止 Excel 開啟)
+├── bypass.bat                # csv檔之關聯程式 (期望三竹匯出後立即結束阻止 Excel 開啟；但無效)
 ├── logs/                     # 執行日誌輸出 (app.log 等)
 ├── 熱門排行/                 # "熱門排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
 └── 盤後排行/                 # "盤後排行"所有項目匯出檔 (YYYYMMDD 子資料夾)
@@ -81,7 +81,7 @@
 - [x] **視窗啟動與鎖定**：偵測「三竹股市電腦版」是否已開啟，若否則自動啟動。
 - [x] **熱門排行**：對「證劵行情」→「熱門排行」的所有項目均執行匯出檔案。詳參 `pop_rank_export_spec.md`。
 - [x] **盤後排行**：對「證劵行情」→「盤後排行」的所有項目均執行匯出檔案。詳參 `After Rank Export Spec.md`。
-- [x] **匯出後 Excel 清理**：每個 CSV 匯出完成後關閉本批次由三竹新開啟的 Excel，並保護批次開始前已存在的 Excel。詳參 `TODO.md`。
+- [x] **匯出後 Excel 清理**：依批次開始時的 PID／HWND 基準清理新增 Excel；差集無法辨識啟動來源，執行期間不可另開 Excel。詳參 `TODO.md`。
 
 ---
 
@@ -141,9 +141,9 @@
 10. **Windows 最小化視窗解除與前台焦點鎖定突破 (ASFW)**：
    - 對處於最小化（`WinGetMinMax == -1`）的視窗單純呼叫 `WinActivate` 無法可靠還原（常只在工作列閃爍）。
    - 解決方案：必須先調用 `WinRestore(hwnd)`，並配合 `DllCall("user32\AllowSetForegroundWindow", "Int", -1)` 與 `DllCall("user32\SetForegroundWindow", "Ptr", hwnd)` 突破前台鎖定，再進行激活與最大化。
-11. **同進程多視窗之標題精確匹配與備援 (`FindMitakeWin`)**：
+11. **同進程多視窗之程序與標題精確匹配 (`FindMitakeWin`)**：
    - 三竹股市主程式視窗與子視窗（「熱門排行」、「盤後排行」）屬於同一程序（`三竹股市.exe`）。若僅以 `ahk_exe 三竹股市.exe` 比對，會誤抓頂層子視窗。
-   - 解決方案：視窗定位應以標題精確區分（`"三竹股市"`、`"熱門排行"`、`"盤後排行"`），並統一封裝於 `FindMitakeWin(winTitle)` 中處理精確標題與進程名稱備援。
+   - 解決方案：`FindMitakeWin(winTitle)` 只在設定的三竹程序視窗中尋找完全相符的標題（`"三竹股市"`、`"熱門排行"`、`"盤後排行"`）；不以程序名稱單獨選取視窗。
 12. **顯示器邊界計算與真實物理 DPI 解析度偵測**：
    - **多螢幕邊界計算**：多螢幕環境中若副螢幕位於主螢幕左方或上方，其邊界座標可能為負數，計算寬高必須使用差值：`Width := Right - Left`、`Height := Bottom - Top`。
    - **DPI 虛擬化避坑**：透過第三方環境（如 .NET）偵測螢幕解析度時，若啟用了系統 DPI 縮放會回傳虛擬化後的邏輯尺寸。解析度偵測一律應依賴 AHK v2 原生 `MonitorGet()` 或呼叫 Win32 API 取得真實物理像素邊界。
